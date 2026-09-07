@@ -51,6 +51,11 @@ _PLAIN_TEXT = re.compile(
 _EM_DASH_QUALIFIER = re.compile(
     r"(Unable to determine|Incorporated terms)\s*[—–]\s*\S", re.IGNORECASE
 )
+_CHAR_COUNT_RULE = re.compile(r"\b\d[\d,]*\s*(?:characters?|chars?)\b", re.IGNORECASE)
+_ESTABLISHED_HEADING = re.compile(r"established\s+results?|upstream\s+results?", re.IGNORECASE)
+_GENERIC_UPSTREAM_USE = re.compile(
+    r"\b(?:established|upstream)\s+(?:results?|values?|states?|classifications?)\b", re.IGNORECASE
+)
 _QUALIFIER_PHRASE = re.compile(
     r"\b(qualifier|after an em dash|followed by a (?:short|brief) (?:reason|explanation|qualifier))\b",
     re.IGNORECASE,
@@ -346,6 +351,57 @@ def check_prompt(text: str, ctx: PromptContext, subject_name: str = "draft") -> 
                 {"lines": permissive_lines[:5], "has_output_section": bool(output_secs)},
             )
         )
+
+    # --- character-count rules (the skill: models count characters unreliably) ---
+    count_lines = [
+        ln.strip()
+        for ln in text.splitlines()
+        if _CHAR_COUNT_RULE.search(ln) and not _NEGATED_LINE.search(ln)
+    ]
+    if count_lines:
+        findings.append(
+            Finding(
+                "CHARACTER_COUNT_RULE",
+                "prompt",
+                None,
+                sid,
+                "The prompt contains a rule expressed as a character count, which the skill says language models apply unreliably.",
+                {"lines": count_lines[:5]},
+            )
+        )
+
+    # --- dead references: an @Column declared but consumed by no rule ---
+    if ctx.table_columns is not None:
+        established_secs = {k for k in secs if _ESTABLISHED_HEADING.search(k)}
+        body_outside = "\n".join(f"{k}\n{v}" for k, v in secs.items() if k not in established_secs)
+        # A line of the form "- Label: @Name" declares an input; it does not use it.
+        decl_line = re.compile(r"^\s*-\s*[^:\n]{1,80}:\s*@[^\n]+$")
+        use_text = "\n".join(ln for ln in body_outside.splitlines() if not decl_line.match(ln))
+        generic_use = bool(_GENERIC_UPSTREAM_USE.search(use_text))
+        declared = [
+            r.resolved_name
+            for r in find_refs(text, [c[0] for c in ctx.table_columns])
+            if r.resolved_name is not None
+            and not (ctx.column_name and r.resolved_name.lower() == ctx.column_name.lower())
+        ]
+        dead: list[str] = []
+        for name in dict.fromkeys(declared):
+            if generic_use:
+                continue
+            if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", use_text, re.IGNORECASE):
+                continue
+            dead.append(name)
+        for name in dead:
+            findings.append(
+                Finding(
+                    "DEAD_REFERENCE",
+                    "prompt",
+                    None,
+                    sid,
+                    f"The prompt declares `@{name}` as an input but no rule outside the established-results preamble mentions it.",
+                    {"reference": name},
+                )
+            )
 
     return findings
 

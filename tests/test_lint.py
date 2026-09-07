@@ -246,3 +246,49 @@ def test_finding_shape_has_one_sentence_and_no_advice():
     assert f.observation.count(". ") == 0 and f.observation.endswith(".")
     for word in ("should", "must", "recommend", "fix", "critical", "severe"):
         assert word not in f.observation.lower()
+
+
+# --- character-count rules and dead references (2026-09-04 bundle) -----------------------
+
+
+def test_character_count_rule():
+    text = (
+        "## Rules\n\n- Truncate the name to 20 characters.\n\n## Output format\n\nReturn the value."
+    )
+    fs = [f for f in check_prompt(text, ctx()) if f.code == "CHARACTER_COUNT_RULE"]
+    assert len(fs) == 1 and fs[0].evidence["lines"] == ["- Truncate the name to 20 characters."]
+
+
+def test_word_limit_is_not_a_character_count_rule():
+    text = (
+        "## Output format\n\nReturn no more than 120 words. Do not truncate to a character count."
+    )
+    assert "CHARACTER_COUNT_RULE" not in codes(check_prompt(text, ctx()))
+
+
+def test_dead_reference_declared_but_unused():
+    text = (
+        "## Established results\n\n- Document Type: @Document Type\n- Execution Status: @Execution Status\n\n"
+        "## Task\n\nIf Execution Status is `Unsigned`, return `Not applicable`.\n\n## Output format\n\nReturn the value."
+    )
+    fs = [f for f in check_prompt(text, ctx(position=4)) if f.code == "DEAD_REFERENCE"]
+    assert [f.evidence["reference"] for f in fs] == ["Document Type"]
+
+
+def test_reference_used_inline_is_not_dead():
+    text = "## Task\n\nIf @Execution Status is `Unsigned`, return `Not applicable`.\n\n## Output format\n\nReturn the value."
+    assert "DEAD_REFERENCE" not in codes(check_prompt(text, ctx(position=4)))
+
+
+def test_generic_established_result_phrase_counts_as_use():
+    text = (
+        "## Established results\n\n- Document Type: @Document Type\n\n"
+        "## Rules\n\n- Report `Upstream unresolved` when any established result is `Unable to determine`.\n\n"
+        "## Output format\n\nReturn the value."
+    )
+    assert "DEAD_REFERENCE" not in codes(check_prompt(text, ctx(position=4)))
+
+
+def test_dead_reference_skipped_without_table_context():
+    text = "## Established results\n\n- X: @Document Type\n\n## Output format\n\nReturn the value."
+    assert "DEAD_REFERENCE" not in codes(check_prompt(text, PromptContext("FreeResponse")))

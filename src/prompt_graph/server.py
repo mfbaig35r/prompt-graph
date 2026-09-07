@@ -362,7 +362,9 @@ def prompt_check(
     `Not stated` outside Date/Number/Currency/Duration or `Not addressed` inside one; Classify
     labels absent from configured_options and em-dash qualifiers in Classify; unresolved or
     forward @Column references (when matter and table are given); missing output contract;
-    Markdown permitted in the cell without an output contract allowing it.
+    Markdown permitted in the cell without an output contract allowing it; a rule expressed
+    as a character count; an @Column declared in the preamble that no rule then uses (dead
+    reference).
     """
     conn = get_conn()
     nt = NATIVE_TYPE_ALIASES.get(native_type.strip().lower(), native_type.strip())

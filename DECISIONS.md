@@ -144,6 +144,13 @@ That is the skill's own convention (exact labels in backticks) and it lets "Do n
 - **Em-dash qualifier in Classify**: `Unable to determine —` / `Incorporated terms —`
   followed by text, or the words "qualifier" / "after an em dash".
 - **Output contract**: an `Output`/`Response format` heading, or any "return" instruction.
+- **Character-count rule**: any `N characters` on a line that is not a prohibition. The
+  bundle says such rules are applied unreliably; word limits are allowed.
+- **Dead reference**: an `@Column` that resolves, but whose name does not appear outside
+  the Established results section (declaration lines of the form `- Label: @Name` do not
+  count as use). A generic phrase such as "any established result" counts as use of every
+  declared input. Needs table context, so it runs on stored prompts and on drafts checked
+  with a matter and table.
 - **Markdown in cell**: a line outside the output section that mentions Markdown, bullets,
   bold, italics, or headings in connection with the answer, without a prohibition, when the
   output section does not itself allow Markdown.
