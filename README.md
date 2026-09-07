@@ -124,6 +124,10 @@ requirements are in `DECISIONS.md`.
 
 ## Development
 
+The `legal-review-table-builder` skill is a separate repository. One test reads its worked
+examples and skips when the skill is not checked out beside this repo; set
+`LEGAL_REVIEW_SKILL_DIR` to point elsewhere.
+
 ```bash
 uv pip install --python .venv/bin/python -e ".[dev]"
 .venv/bin/pytest -q

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -10,8 +11,12 @@ import pytest
 from prompt_graph.constants import CHAR_LIMIT_ADVISORY, CHAR_LIMIT_HARD, FALLBACK_SYNONYMS
 from prompt_graph.lint import PromptContext, check_prompt, fallback_terms_used
 
-SKILL_DIR = (
-    Path(__file__).resolve().parents[1] / "requirements" / "legal-review-table-builder-skill"
+# The skill lives in its own repository beside this one; set LEGAL_REVIEW_SKILL_DIR to override.
+SKILL_DIR = Path(
+    os.environ.get(
+        "LEGAL_REVIEW_SKILL_DIR",
+        Path(__file__).resolve().parents[2] / "legal-review-table-builder-skill",
+    )
 )
 COLS = [
     ("Document Type", 1),
