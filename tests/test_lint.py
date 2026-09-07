@@ -40,7 +40,7 @@ def ctx(native_type="FreeResponse", options=None, name="Draft", position=3, cols
 
 @pytest.mark.skipif(not SKILL_DIR.exists(), reason="skill sources not checked out")
 def test_worked_examples_lint_clean():
-    src = (SKILL_DIR / "worked-examples.md").read_text()
+    src = (SKILL_DIR / "references" / "worked-examples.md").read_text()
     blocks = re.findall(r"```markdown\n(.*?)```", src, re.S)
     exec_status, signatories = blocks[1], blocks[2]
     opts = [

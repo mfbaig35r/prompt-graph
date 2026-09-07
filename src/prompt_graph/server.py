@@ -247,7 +247,7 @@ def column_revise(
     """Record a revision to one column: a new prompt version, a rename, a status change, or metadata.
 
     Use it after the skill has drafted a revised prompt: pass prompt_text with a change_note
-    and the failure_class_addressed (one of the skill's sixteen classes) so the change log
+    and the failure_class_addressed (one of the skill's nineteen classes) so the change log
     reads like the inventory template. Unchanged text creates no version. bump='major' for a
     redesign. status is draft | testing | verified | retired; retiring reports every column
     that still depends on this one. rename_to is the only way to rename: other prompts that
@@ -567,10 +567,10 @@ def eval_record(
     """Log evaluation results for a run, one record per (column, test document), in batch.
 
     Fields mirror the skill's evaluation-log-template.csv. Record passes as well as failures.
-    failure_class must be one of the skill's sixteen classes (scope_leakage,
+    failure_class must be one of the skill's nineteen classes (scope_leakage,
     concept_conflation, document_type_error, temporal_status_error, evidence_overstatement,
-    holder_direction_error, silence_uncertainty_error, vocabulary_drift, applicability_error,
-    dependency_routing_error, cascade_error, stale_dependent_error, grouped_source_error,
+    holder_direction_error, silence_uncertainty_error, suppressed_value, type_rejection,
+    vocabulary_drift, applicability_error, dependency_routing_error, dead_reference, cascade_error, stale_dependent_error, grouped_source_error,
     aggregation_error, output_leakage, verbosity); error_type is substantive | evidentiary |
     formatting. run_id defaults to the table's latest run. A failure stays open until a later
     result for the same column and document passes.

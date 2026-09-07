@@ -102,7 +102,7 @@ column is stale or has a version newer than this column's last run.
 **Validation.** Vocabulary exactly `Not addressed`, `Not stated`, `Not applicable`,
 `Incorporated terms`, `Unable to determine`; synonyms `N/A`, `None`, `Unclear`, `Silent`,
 `Unknown`, `TBD`. Typed columns = Date, Number, Currency, Duration. Limits 10,000 hard /
-6,000 advisory. Failure taxonomy is the skill's sixteen classes. Coverage dimensions are the
+6,000 advisory. Failure taxonomy is the skill's nineteen classes. Coverage dimensions are the
 template's fourteen.
 
 **Coverage.** Assertions carry `kind` (required): `extraction` → gap when unsourced;

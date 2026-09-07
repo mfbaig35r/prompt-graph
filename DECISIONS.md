@@ -38,10 +38,12 @@ still raise.
 
 ## Vocabulary and taxonomy (deviation from §6)
 
-**Failure classes are the skill's sixteen, not the requirements' eight.** §6 lists eight
+**Failure classes are the skill's nineteen, not the requirements' eight.** §6 lists eight
 slugs including `output_format_error`, which does not appear in the skill. The build prompt
 says the taxonomy comes from the skill and must match exactly, so `FAILURE_CLASSES` is the
-sixteen-row table in `references/evaluation.md`, in the skill's order, with label-form
+nineteen-row table in `references/evaluation.md` (the 2026-09-04 bundle, which adds
+Suppressed value, Type rejection, and Dead reference over the flat copy that shipped
+beside it), in the skill's order, with label-form
 aliases accepted (`"Evidence overstatement"` → `evidence_overstatement`). The requirements'
 `output_format_error` is not accepted; the skill's equivalents are `output_leakage`,
 `vocabulary_drift`, and `verbosity`. An unknown class is stored as submitted and reported

@@ -226,7 +226,7 @@ def eval_record(
                         "eval",
                         None,
                         rec.column,
-                        f"'{rec.failure_class}' is not one of the skill's sixteen failure classes.",
+                        f"'{rec.failure_class}' is not one of the skill's nineteen failure classes.",
                         {"accepted": list(FAILURE_CLASSES), "test_document": rec.test_document},
                     )
                 )
