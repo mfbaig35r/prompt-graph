@@ -1,0 +1,36 @@
+[project]
+name = "prompt-graph"
+version = "0.1.0"
+description = "MCP server that stores, versions, validates, and computes over Harvey review-table prompts for M&A diligence"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Fahad Baig" }]
+license = { text = "Proprietary" }
+dependencies = [
+    "mcp>=1.2,<2",
+    "pydantic>=2.7,<3",
+]
+
+[project.scripts]
+prompt-graph = "prompt_graph.server:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/prompt_graph"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501"]  # long observation strings; ruff format governs code layout

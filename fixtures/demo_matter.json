@@ -1,0 +1,300 @@
+{
+  "matter": {
+    "name": "Project Harbor",
+    "objective": "Buyer-side entity, charter, lease, and material-contract diligence on Harbor Logistics Holdings, LLC and its two subsidiaries.",
+    "side": "buy"
+  },
+  "standard": {
+    "entities": [
+      {"name": "Harbor Logistics Holdings, LLC", "jurisdiction": "Delaware limited liability company", "role": "parent", "is_subject": true},
+      {"name": "Harbor Freight Services, Inc.", "jurisdiction": "Texas corporation", "role": "wholly owned subsidiary", "is_subject": true},
+      {"name": "Harbor Cold Chain, LLC", "jurisdiction": "Delaware limited liability company", "role": "wholly owned subsidiary", "is_subject": true},
+      {"name": "Northgate Acquisition Corp.", "jurisdiction": "Delaware corporation", "role": "buyer", "is_subject": false}
+    ],
+    "objective": "Buyer-side diligence for the acquisition of the Harbor group by Northgate Acquisition Corp.",
+    "currency_pattern": "USD 1,000.00",
+    "conventions": ["Write currency as USD 1,000.00."]
+  },
+  "tables": [
+    {
+      "name": "Entity Register",
+      "meta": {"review_unit": "one organizational document", "position": 1},
+      "instructions": "## Matter\n\nProject Harbor. Buyer-side entity diligence on the target group listed below. Analyze each document as a standalone record unless a column expressly says otherwise.\n\n## Review subjects\n\nUse these names exactly as written when an entity is the subject of an answer:\n\n- Harbor Logistics Holdings, LLC (Delaware limited liability company; parent)\n- Harbor Freight Services, Inc. (Texas corporation; wholly owned subsidiary)\n- Harbor Cold Chain, LLC (Delaware limited liability company; wholly owned subsidiary)\n\nNorthgate Acquisition Corp. is the buyer. It is a counterparty, not a review subject, unless a column expressly asks about the buyer.\n\n## Shared rules\n\n- Analyze only the document in the current row. Do not use other rows, filenames, or outside knowledge of the entities.\n- Use entity and individual names exactly as printed in the document; do not shorten, expand, or correct them.\n- Write dates as `YYYY-MM-DD`. Preserve partial dates as written when the document gives less precision.\n- Use only these fallback states, with the meaning each column defines: `Not addressed`, `Not stated`, `Not applicable`, `Incorporated terms`, `Unable to determine`.\n- Return the normalized answer only. Reasoning, quotations, section numbers, and citations belong in Harvey's evidence fields, not in the cell.",
+      "columns": [
+        {
+          "name": "Document Type",
+          "position": 1,
+          "native_type": "Classify",
+          "role": "orientation",
+          "concept": "document type",
+          "configured_options": ["Certificate of formation", "Articles of incorporation", "Operating agreement", "Bylaws", "Written consent", "Minutes", "Good standing certificate", "Not applicable", "Unable to determine"],
+          "purpose": "Classify the document so later columns can route on its type.",
+          "prompt_text": "## Task\n\nClassify the document in the current row by its type. Choose exactly one configured option.\n\n## Scope\n\n- Use the title, opening recitals, and body of this document only.\n- Exclude exhibits, attachments, and referenced documents.\n\n## Classification rules\n\n1. `Certificate of formation`: a filed certificate forming a limited liability company.\n2. `Articles of incorporation`: a filed charter forming a corporation.\n3. `Operating agreement`: the governing agreement of a limited liability company, including amendments and restatements.\n4. `Bylaws`: the governing rules of a corporation.\n5. `Written consent`: an action taken by written consent of members, managers, shareholders, or directors.\n6. `Minutes`: a record of a meeting.\n7. `Good standing certificate`: a certificate issued by a Secretary of State or equivalent office.\n\n## Fallback rules\n\n- Use `Not applicable` when the document is none of these, such as a cap table, organizational chart, or correspondence.\n- Use `Unable to determine` only when the document is illegible or incomplete in a way that prevents classification.\n\n## Output format\n\nReturn only the exact configured option."
+        },
+        {
+          "name": "Principal Entity",
+          "position": 2,
+          "native_type": "FreeResponse",
+          "role": "orientation",
+          "concept": "principal entity",
+          "purpose": "Identify the exact legal name of the entity this document forms, governs, or certifies, so every other table can use the same name.",
+          "prompt_text": "## Established results\n\n- Document Type: @Document Type\n\n## Task\n\nIdentify the exact legal name of the entity that is the subject of the document in the current row.\n\n## Scope\n\n- For a formation or governance document, analyze the entity formed or governed.\n- For an amendment, analyze the entity whose organizational document is amended.\n- For minutes or consent, analyze the entity whose governing body acts.\n- For an official certificate, analyze each entity whose status is certified.\n- Exclude owners, parents, affiliates, counterparties, proposed entities, and DBAs merely mentioned.\n\n## Rules\n\n- Use the name exactly as printed, including punctuation and entity suffix.\n- If the document certifies more than one entity, list each on its own line.\n\n## Fallback rules\n\n- If Document Type is `Not applicable`, return exactly `Not applicable`.\n- If Document Type is `Unable to determine`, return `Unable to determine — upstream document type is unresolved`.\n- If the subject entity is not named, return `Not addressed`.\n\n## Output format\n\nReturn the exact legal name only, one per line. Do not include jurisdiction, roles, section numbers, or citations."
+        },
+        {
+          "name": "Formation Date",
+          "position": 3,
+          "native_type": "Date",
+          "role": "extraction",
+          "concept": "formation date",
+          "purpose": "Record the date the entity was formed, from the filed instrument, not from later documents that mention it.",
+          "prompt_text": "## Established results\n\n- Document Type: @Document Type\n\n## Task\n\nIdentify the formation date of the principal entity and state what the selected date represents.\n\n## Date-selection hierarchy\n\n### Certificate of formation or Articles of incorporation\n\n1. Use the filing date stamped by the Secretary of State.\n2. If absent, use the effective date stated in the instrument.\n3. Do not substitute the execution date of the organizer.\n\n### Any other document type\n\nReturn `Not applicable`; formation is proved by the filed instrument only.\n\n## Excluded dates\n\n- Filename or metadata dates\n- Dates belonging only to referenced documents\n- Notarization, download, retrieval, or scan dates\n\n## Output format\n\n`YYYY-MM-DD — [date basis]`\n\nPreserve partial precision. Return `Not stated` when no date can be selected under the hierarchy."
+        },
+        {
+          "name": "Execution Status",
+          "position": 4,
+          "native_type": "Classify",
+          "role": "orientation",
+          "concept": "execution status",
+          "configured_options": ["Filed or issued", "Fully executed", "Partially executed", "Unsigned", "Not applicable", "Unable to determine"],
+          "purpose": "State what the document visibly proves about its own completion, so later columns can describe an unsigned consent as a proposal rather than an approved action.",
+          "prompt_text": "## Task\n\nClassify the visible completion status of the document in the current row. Choose exactly one configured option.\n\n## Scope\n\n- Evaluate only signature blocks, electronic-signature markers, conformed signatures, filing stamps, file numbers, and certification language visible in this document.\n- Include signature pages, counterpart pages, and stamped cover pages that belong to this document.\n- Exclude signature and filing evidence on exhibits, attachments, or referenced documents; that evidence describes those documents, not this one.\n\n## Classification rules\n\nApply the first rule that fits.\n\n1. `Filed or issued`: the document bears a government filing stamp, a file number with filing date, or certification language from a Secretary of State or equivalent office, or is a certificate issued by such an office.\n2. `Fully executed`: every signature block the document provides for a party bears a signature marker.\n3. `Partially executed`: at least one party signature block bears a signature marker and at least one does not.\n4. `Unsigned`: the document provides party signature blocks and none bears a signature marker.\n5. `Not applicable`: the document provides no signature block and no filing or certification evidence.\n\nA signature marker is a handwritten signature, an electronic-signature block from a signing platform, or a conformed signature shown as `/s/` followed by a name. Count signature blocks for parties only. Do not count notary, witness, or attestation blocks toward execution status.\n\n## Fallback rules\n\n- Use `Unable to determine` only when signature or filing evidence exists but cannot be read, when a signature page is referenced but missing, or when the document visibly conflicts with itself about execution.\n\n## Output format\n\nReturn only the exact configured option. Do not add explanation, dates, names, or citation markers."
+        },
+        {
+          "name": "Signatories",
+          "position": 5,
+          "native_type": "FreeResponse",
+          "role": "extraction",
+          "purpose": "Identify who signed, for which party, and in what stated capacity, so the reviewer can check authority without opening the document.",
+          "prompt_text": "## Established results\n\n- Execution Status: @Execution Status\n\nUse this result for routing only. Confirm every reported name, title, and signature against the signature blocks in the current row.\n\n## Task\n\nIf Execution Status is `Fully executed` or `Partially executed`, list each party the document provides a signature block for, the individual who signed for that party, the individual's stated title or capacity, and whether that block is signed.\n\nIf Execution Status is `Filed or issued`, list any visible individual signer of the filed instrument in the same form. If no individual signer is visible, return `Not applicable — government filing or certificate without individual signer`.\n\nIf Execution Status is `Unsigned` or `Not applicable`, return exactly `Not applicable`.\n\nIf Execution Status is `Unable to determine`, return exactly `Unable to determine — upstream execution status is unresolved`.\n\n## Rules\n\n- Use party and individual names exactly as printed in the signature block, including entity suffixes.\n- Report the title or capacity exactly as printed under the signature line. Write `capacity not stated` when none is printed.\n- Do not report notaries, witnesses, or attesting secretaries as signatories.\n- Do not infer a signer's authority, and do not state whether the signature was authorized or effective.\n\n## Output format\n\nOne line per party, in the order the signature blocks appear:\n\n`[Party name] — [Signer name], [Title or capacity] ([Signed | Unsigned])`\n\nList no more than 8 parties. Return no more than 120 words. Do not include dates, section numbers, quotations, or citation markers."
+        },
+        {
+          "name": "Human Review Flags",
+          "position": 6,
+          "native_type": "FreeResponse",
+          "role": "human_review",
+          "purpose": "Collect the conditions an attorney must look at: conflicts between columns, unresolved upstream states, and multi-entity certificates.",
+          "prompt_text": "## Established results\n\n- Document Type: @Document Type\n- Execution Status: @Execution Status\n- Signatories: @Signatories\n\n## Task\n\nList the conditions in the current row that require attorney review. Do not resolve them.\n\n## Rules\n\n- Report `Upstream unresolved` when any established result is `Unable to determine`.\n- Report `Signature conflict` when Signatories begins with `Conflicts with Execution Status`.\n- Report `Multiple entities` when more than one entity is certified or governed.\n- Do not state whether a defect exists or what its consequence is.\n\n## Fallback rules\n\n- If no condition applies, return exactly `Not addressed`.\n\n## Output format\n\nOne condition per line from the labels above. Return no more than 40 words. Do not include reasoning or citations."
+        }
+      ]
+    },
+    {
+      "name": "Charter Documents",
+      "meta": {"review_unit": "one charter document", "position": 2},
+      "instructions": "## Matter\n\nProject Harbor. Buyer-side charter diligence. Analyze each document as a standalone record unless a column expressly says otherwise.\n\n## Review subjects\n\nUse these names exactly as written when an entity is the subject of an answer:\n\n- Harbor Logistics Holdings, LLC (Delaware limited liability company; parent)\n- Harbor Freight Services, Inc. (Texas corporation; wholly owned subsidiary)\n- Harbor Cold Chain, LLC (Delaware limited liability company; wholly owned subsidiary)\n\nNorthgate Acquisition Corp. is the buyer, not a review subject.\n\n## Shared rules\n\n- Analyze only the document in the current row.\n- Use entity and individual names exactly as printed in the document.\n- Write dates as `YYYY-MM-DD`.\n- Use only these fallback states: `Not addressed`, `Not stated`, `Not applicable`, `Incorporated terms`, `Unable to determine`.\n- Return the normalized answer only.",
+      "columns": [
+        {
+          "name": "Document Type",
+          "position": 1,
+          "native_type": "Classify",
+          "role": "orientation",
+          "concept": "document type",
+          "configured_options": ["Operating agreement", "Bylaws", "Amendment", "Restatement", "Not applicable", "Unable to determine"],
+          "purpose": "Classify the charter document so later columns can route on its type.",
+          "prompt_text": "## Task\n\nClassify the document in the current row. Choose exactly one configured option.\n\n## Classification rules\n\n1. `Restatement`: a document that restates the governing agreement or bylaws in full, even if it also amends.\n2. `Amendment`: a document that changes specific provisions without restating the whole.\n3. `Operating agreement`: the original governing agreement of a limited liability company.\n4. `Bylaws`: the original governing rules of a corporation.\n\n## Fallback rules\n\n- Use `Not applicable` for any other document.\n- Use `Unable to determine` only when the document is illegible or incomplete.\n\n## Output format\n\nReturn only the exact configured option."
+        },
+        {
+          "name": "Transfer Restrictions",
+          "position": 2,
+          "native_type": "Classify",
+          "role": "extraction",
+          "concept": "transfer restrictions",
+          "configured_options": ["Present", "Not addressed", "Not applicable", "Incorporated terms", "Unable to determine"],
+          "purpose": "State whether the charter restricts transfers of existing equity, so the memo can address change-of-control mechanics.",
+          "prompt_text": "## Established results\n\n- Document Type: @Document Type\n\n## Task\n\nClassify whether the document restricts transfers of existing equity interests of the principal entity. Choose exactly one configured option.\n\n## Scope\n\n- Include rights of first refusal, consent requirements for transfer, tag-along and drag-along rights, and prohibitions on transfer.\n- Exclude preemptive rights on new issuances; those are reported elsewhere.\n\n## Classification rules\n\n- `Present`: the document contains at least one restriction on transfer of existing interests.\n\n## Fallback rules\n\n- `Not addressed`: the document is silent on transfer of existing interests.\n- `Not applicable`: Document Type is `Not applicable`.\n- `Incorporated terms`: transfer terms are governed by another agreement the document names but does not reproduce.\n- `Unable to determine`: Document Type is `Unable to determine`, or the provision is illegible or internally conflicting.\n\n## Output format\n\nReturn only the exact configured option."
+        },
+        {
+          "name": "Transfer Restriction Detail",
+          "position": 3,
+          "native_type": "FreeResponse",
+          "role": "extraction",
+          "purpose": "Describe the transfer restrictions when present, so the attorney can assess whether the transaction triggers them.",
+          "prompt_text": "## Established result\n\n- Transfer Restrictions: @Transfer Restrictions\n\n## Task\n\nIf @Transfer Restrictions is `Present`, describe each restriction on transfer of existing interests: the type of restriction, who holds the right, and any stated exceptions.\n\nIf @Transfer Restrictions is `Unable to determine`, return `Unable to determine — upstream status is unresolved`.\n\nFor all other non-applicable states, return exactly `Not applicable`.\n\n## Rules\n\n- Use the established result for routing, but confirm the reported details against the current review unit.\n- Do not convert `Not addressed`, `Not applicable`, or `Unable to determine` into a positive finding.\n- Do not state whether the proposed transaction triggers a restriction.\n\n## Output format\n\nOne restriction per line: `[Type] — [Holder]: [exceptions or none stated]`. Return no more than 100 words. Do not include section numbers or quotations."
+        },
+        {
+          "name": "Change of Control Consent",
+          "position": 4,
+          "native_type": "Classify",
+          "role": "extraction",
+          "concept": "change of control consent",
+          "configured_options": ["Consent required", "No consent provision", "Not applicable", "Incorporated terms", "Unable to determine"],
+          "purpose": "Record whether the charter itself requires a consent or approval on a change of control of the principal entity.",
+          "prompt_text": "## Established results\n\n- Document Type: @Document Type\n\n## Task\n\nClassify whether the document requires a consent, approval, or vote on a change of control of the principal entity. Choose exactly one configured option.\n\n## Classification rules\n\n- `Consent required`: the document expressly conditions a change of control, sale of the company, or transfer of a controlling interest on a consent, approval, or vote.\n- `No consent provision`: the document addresses change of control and imposes no consent requirement.\n\n## Fallback rules\n\n- `Not applicable`: Document Type is `Not applicable`.\n- `Incorporated terms`: the consent mechanics are in another agreement the document names but does not reproduce.\n- `Unable to determine`: the provision is illegible or internally conflicting.\n\n## Output format\n\nReturn only the exact configured option."
+        }
+      ]
+    },
+    {
+      "name": "Real Estate Leases",
+      "meta": {"review_unit": "one lease", "position": 3},
+      "instructions": "## Matter\n\nProject Harbor. Buyer-side lease diligence on the target group. Analyze each lease as a standalone record.\n\n## Review subjects\n\nUse these names exactly as written when an entity is the subject of an answer:\n\n- Harbor Logistics Holdings, LLC (Delaware limited liability company; parent)\n- Harbor Freight Services, Inc. (Texas corporation; wholly owned subsidiary)\n- Harbor Cold Chain LLC (Delaware limited liability company; wholly owned subsidiary)\n\n## Shared rules\n\n- Analyze only the document in the current row.\n- Write dates as `YYYY-MM-DD`.\n- Write currency as `USD 1,000.00`.\n- Use only these fallback states: `Not addressed`, `Not stated`, `Not applicable`, `Incorporated terms`, `Unable to determine`.\n- Return the normalized answer only.",
+      "columns": [
+        {
+          "name": "Tenant Entity",
+          "position": 1,
+          "native_type": "FreeResponse",
+          "role": "orientation",
+          "concept": "principal entity",
+          "purpose": "Identify which Harbor entity is the tenant, using the exact names in the Table Instructions.",
+          "advisory_upstream": [{"table": "Entity Register", "column": "Principal Entity", "note": "Exact legal names come from the entity table."}],
+          "prompt_text": "## Task\n\nIdentify the tenant under the lease in the current row.\n\n## Scope\n\n- Report the tenant named in the lease, using the name exactly as printed.\n- Exclude guarantors, landlords, and affiliates merely mentioned.\n\n## Fallback rules\n\n- If the tenant is not named, return `Not addressed`.\n- If the tenant name is illegible, return `Unable to determine — tenant name illegible`.\n\n## Output format\n\nReturn the exact printed name only."
+        },
+        {
+          "name": "Lease Expiry Date",
+          "position": 2,
+          "native_type": "Date",
+          "role": "extraction",
+          "concept": "lease expiry",
+          "purpose": "Record the stated expiry of the current term, distinguishing it from delivery and commencement dates.",
+          "prompt_text": "## Task\n\nIdentify the expiry date of the current lease term.\n\n## Date-selection hierarchy\n\n1. Use the expiry date stated for the current term.\n2. If only a term length and commencement date are stated, return `Not stated`; do not compute.\n3. Do not substitute the delivery date, rent commencement date, or an option expiry.\n\n## Output format\n\n`YYYY-MM-DD — [date basis]`\n\nReturn `Not stated` when no expiry date is stated."
+        },
+        {
+          "name": "Assignment Consent",
+          "position": 3,
+          "native_type": "Classify",
+          "role": "extraction",
+          "concept": "change of control consent",
+          "configured_options": ["Landlord consent required", "Permitted without consent", "Not addressed", "Not applicable", "Unable to determine"],
+          "purpose": "Record whether assignment or a change of control of the tenant requires landlord consent.",
+          "prompt_text": "## Task\n\nClassify whether the lease requires landlord consent to an assignment or to a change of control of the tenant. Choose exactly one configured option.\n\n## Classification rules\n\n- `Landlord consent required`: assignment or change of control requires the landlord's consent, whether or not consent may not be unreasonably withheld.\n- `Permitted without consent`: the lease expressly permits assignment or change of control without consent.\n\n## Fallback rules\n\n- `Not addressed`: the lease is silent on assignment and change of control.\n- `Unable to determine`: the provision is illegible or internally conflicting.\n\n## Output format\n\nReturn only the exact configured option."
+        },
+        {
+          "name": "Annual Base Rent",
+          "position": 4,
+          "native_type": "Currency",
+          "role": "extraction",
+          "purpose": "Record the current annual base rent.",
+          "prompt_text": "## Task\n\nIdentify the current annual base rent stated in the lease.\n\n## Rules\n\n- Use the base rent for the current lease year; do not add operating expenses or taxes.\n- If rent is stated monthly only, return `Not stated`; do not compute an annual figure.\n\n## Output format\n\nReturn `$1,000.00` style amounts with the currency symbol. Return `Not stated` when no annual base rent is stated."
+        }
+      ]
+    },
+    {
+      "name": "Material Contracts",
+      "meta": {"review_unit": "one agreement", "position": 4},
+      "instructions": "## Matter\n\nProject Harbor. Buyer-side material-contract diligence on the target group. Analyze each agreement as a standalone record.\n\n## Review subjects\n\nUse these names exactly as written when an entity is the subject of an answer:\n\n- Harbor Logistics Holdings, LLC (Delaware limited liability company; parent)\n- Harbor Freight Services, Inc. (Texas corporation; wholly owned subsidiary)\n- Harbor Cold Chain, LLC (Delaware limited liability company; wholly owned subsidiary)\n\n## Shared rules\n\n- Analyze only the document in the current row.\n- Write dates as `YYYY-MM-DD`.\n- Use only these fallback states: `Not addressed`, `Not stated`, `Not applicable`, `Incorporated terms`, `Unable to determine`.\n- Return the normalized answer only.",
+      "columns": [
+        {
+          "name": "Harbor Party",
+          "position": 1,
+          "native_type": "FreeResponse",
+          "role": "orientation",
+          "concept": "principal entity",
+          "purpose": "Identify which Harbor entity is a party to the agreement.",
+          "advisory_upstream": [{"table": "Entity Register", "column": "Principal Entity"}],
+          "prompt_text": "## Task\n\nIdentify each Harbor group entity that is a party to the agreement in the current row.\n\n## Scope\n\n- Report parties named in the preamble or signature blocks, using names exactly as printed.\n- Exclude affiliates, guarantors, and entities merely mentioned.\n\n## Fallback rules\n\n- If no Harbor entity is a party, return `Not applicable`.\n- If the party name is illegible, return `Unable to determine — party name illegible`.\n\n## Output format\n\nOne exact printed name per line."
+        },
+        {
+          "name": "Change of Control Trigger",
+          "position": 2,
+          "native_type": "Classify",
+          "role": "extraction",
+          "concept": "change of control consent",
+          "configured_options": ["Consent required", "Termination right", "No provision", "Not applicable", "Incorporated terms", "Unable to determine"],
+          "purpose": "Record whether the agreement contains a change-of-control consent or termination right.",
+          "prompt_text": "## Established results\n\n- Harbor Party: @Harbor Party\n\n## Task\n\nClassify the agreement's change-of-control provision as it applies to the Harbor party. Choose exactly one configured option.\n\n## Classification rules\n\n- `Consent required`: a change of control of the Harbor party requires the counterparty's consent.\n- `Termination right`: a change of control gives the counterparty a right to terminate without a consent mechanism.\n- `No provision`: the agreement addresses assignment but not change of control.\n\n## Fallback rules\n\n- `Not applicable`: Harbor Party is `Not applicable`.\n- `Incorporated terms`: the provision is in a master agreement the document names but does not reproduce.\n- `Unable to determine`: Harbor Party is `Unable to determine`, or the provision is illegible or internally conflicting.\n\n## Output format\n\nReturn only the exact configured option."
+        },
+        {
+          "name": "Counterparty Consent Detail",
+          "position": 3,
+          "native_type": "FreeResponse",
+          "role": "extraction",
+          "purpose": "Describe the consent or termination mechanics when a trigger is present.",
+          "prompt_text": "## Established result\n\n- Change of Control Trigger: @Change of Control Trigger\n\n## Task\n\nIf @Change of Control Trigger is `Consent required` or `Termination right`, describe the mechanics: who must consent or may terminate, any notice period, and any stated exceptions.\n\nIf @Change of Control Trigger is `Unable to determine`, return `Unable to determine — upstream status is unresolved`.\n\nFor all other states, return exactly `Not applicable`.\n\n## Rules\n\n- Confirm the details against the current review unit.\n- Do not state whether the proposed transaction triggers the provision.\n\n## Output format\n\n`[Mechanism] — [Holder]: [notice period or none stated]; [exceptions or none stated]`. Return no more than 80 words."
+        },
+        {
+          "name": "Termination Date",
+          "position": 4,
+          "native_type": "Date",
+          "role": "extraction",
+          "purpose": "Record the stated termination or expiry date of the agreement.",
+          "prompt_text": "## Task\n\nIdentify the stated termination or expiry date of the agreement.\n\n## Rules\n\n1. Use an expressly stated termination or expiry date.\n2. Do not compute a date from a term length.\n3. Do not substitute the effective date or a renewal notice deadline.\n\n## Output format\n\n`MM/DD/YYYY — [date basis]`\n\nReturn `Not stated` when no termination date is stated."
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "name": "Target Legal Name",
+      "value": "Harbor Logistics Holdings, LLC",
+      "source_table": "Entity Register",
+      "source_column": "Principal Entity",
+      "consumers": [
+        {"table": "Charter Documents", "site": "table_instructions"},
+        {"table": "Real Estate Leases", "site": "table_instructions"},
+        {"table": "Material Contracts", "site": "table_instructions"}
+      ]
+    },
+    {
+      "name": "Buyer Legal Name",
+      "value": "Northgate Acquisition Corp.",
+      "consumers": [
+        {"table": "Charter Documents", "site": "table_instructions"}
+      ]
+    }
+  ],
+  "memo_outline": {
+    "name": "Project Harbor diligence memo",
+    "sections": [
+      {
+        "name": "Corporate organization",
+        "assertions": [
+          {"text": "Each target entity's exact legal name and jurisdiction of formation", "kind": "extraction", "sources": [{"table": "Entity Register", "column": "Principal Entity"}]},
+          {"text": "Each target entity's formation date", "kind": "extraction", "sources": [{"table": "Entity Register", "column": "Formation Date"}]},
+          {"text": "Which organizational document is currently operative for each entity", "kind": "judgment", "sources": [{"table": "Entity Register", "column": "Document Type"}, {"table": "Charter Documents", "column": "Document Type"}]}
+        ]
+      },
+      {
+        "name": "Change of control",
+        "assertions": [
+          {"text": "Charter-level consents required on a change of control", "kind": "extraction", "sources": [{"table": "Charter Documents", "column": "Change of Control Consent"}]},
+          {"text": "Transfer restrictions on existing equity and who holds them", "kind": "extraction", "sources": [{"table": "Charter Documents", "column": "Transfer Restrictions"}, {"table": "Charter Documents", "column": "Transfer Restriction Detail"}]},
+          {"text": "Leases requiring landlord consent on a change of control of the tenant", "kind": "extraction", "sources": [{"table": "Real Estate Leases", "column": "Assignment Consent"}]},
+          {"text": "Material contracts with change-of-control consent or termination rights", "kind": "extraction", "sources": [{"table": "Material Contracts", "column": "Change of Control Trigger"}, {"table": "Material Contracts", "column": "Counterparty Consent Detail"}]},
+          {"text": "Whether the proposed transaction triggers each identified provision", "kind": "judgment", "sources": [{"table": "Charter Documents", "column": "Change of Control Consent"}, {"table": "Material Contracts", "column": "Change of Control Trigger"}]},
+          {"text": "Preemptive rights on new issuances", "kind": "extraction"}
+        ]
+      },
+      {
+        "name": "Litigation and compliance",
+        "assertions": [
+          {"text": "Pending or threatened litigation disclosed in the data room", "kind": "extraction"},
+          {"text": "Materiality of any identified claim to the transaction", "kind": "judgment"}
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "table": "Entity Register",
+      "note": "First full run on the 14-document test set",
+      "evaluator": "Associate",
+      "coverage_dimensions": ["document_types", "execution_states", "express", "silent", "upstream_fallbacks"],
+      "results": [
+        {"column": "Execution Status", "test_document": "HLH Operating Agreement (conformed closing set)", "passed": false, "actual_answer": "Unsigned", "expected_behavior": "Fully executed", "failure_class": "evidence_overstatement", "error_type": "substantive", "evidence_relied_on": "Conformed /s/ signatures not treated as signature markers"},
+        {"column": "Execution Status", "test_document": "HFS Bylaws (blank notary block)", "passed": false, "actual_answer": "Partially executed", "expected_behavior": "Fully executed", "failure_class": "scope_leakage", "error_type": "substantive", "evidence_relied_on": "Blank notary block counted as a party block"},
+        {"column": "Execution Status", "test_document": "HCC Certificate of Formation", "passed": true, "actual_answer": "Filed or issued", "expected_behavior": "Filed or issued"},
+        {"column": "Principal Entity", "test_document": "HCC Certificate of Formation", "passed": true, "actual_answer": "Harbor Cold Chain, LLC", "expected_behavior": "Harbor Cold Chain, LLC"},
+        {"column": "Principal Entity", "test_document": "HLH Written Consent (buyer named)", "passed": false, "actual_answer": "Northgate Acquisition Corp.", "expected_behavior": "Harbor Logistics Holdings, LLC", "failure_class": "scope_leakage", "error_type": "substantive"},
+        {"column": "Formation Date", "test_document": "HCC Certificate of Formation", "passed": true, "actual_answer": "2019-03-04 — filing stamp", "expected_behavior": "2019-03-04 — filing stamp"},
+        {"column": "Signatories", "test_document": "HLH Operating Agreement (conformed closing set)", "passed": false, "actual_answer": "Not applicable", "expected_behavior": "Conformed signers listed", "failure_class": "cascade_error", "error_type": "substantive", "evidence_relied_on": "Routed on upstream Unsigned"}
+      ]
+    },
+    {
+      "table": "Charter Documents",
+      "note": "First run",
+      "coverage_dimensions": ["document_types", "express", "silent", "incorporated", "upstream_fallbacks", "conditional"],
+      "results": [
+        {"column": "Transfer Restrictions", "test_document": "HLH Operating Agreement", "passed": true, "actual_answer": "Present", "expected_behavior": "Present"},
+        {"column": "Change of Control Consent", "test_document": "HLH Operating Agreement", "passed": true, "actual_answer": "Consent required", "expected_behavior": "Consent required"},
+        {"column": "Change of Control Consent", "test_document": "HFS Bylaws", "passed": false, "actual_answer": "Unable to determine", "expected_behavior": "No consent provision", "failure_class": "silence_uncertainty_error", "error_type": "substantive"}
+      ]
+    }
+  ],
+  "revisions": [
+    {
+      "table": "Entity Register",
+      "column": "Execution Status",
+      "change_note": "Added /s/ conformed signature to signature-marker definition",
+      "failure_class_addressed": "evidence_overstatement",
+      "replace": ["or a conformed signature shown as `/s/` followed by a name.", "or a conformed signature shown as `/s/` followed by a name; a conformed signature on a closing set counts as a signature marker."]
+    }
+  ]
+}
