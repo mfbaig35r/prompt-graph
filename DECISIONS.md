@@ -219,6 +219,41 @@ per-column reasons. Before any evaluation, everything is nominal; that is the ho
 **Unsourced columns** are every active column that feeds no assertion. Retired columns are
 excluded.
 
+## Addendum A (built 2026-09-07)
+
+**A.1 freshness.** Migration 2 adds `document_set_snapshot`, `vault_project_id` on matter and
+table, and `run.document_set_snapshot_id`, so no run recorded from now on lacks the field. The
+vault project lives on the table with a matter-level default, because tables in one matter
+can run against different projects. The addendum's two tools are one: `freshness_check`,
+which compares by default and observes with `refresh=true`, from the Vault API when
+`HARVEY_API_KEY` is set or from a manual count otherwise. The manual path is first-class,
+not a fallback: Konexo's seats have no API. `run_record` links the latest snapshot for the
+table's project, or records a manual one from `documents_ready`. Findings carry the
+observation's provenance. The API client is stdlib only with an injectable fetcher, filters to
+`ready_to_query`, skips `deleted_at`, paginates by cursor, caches for five minutes against
+the ten-a-minute limit, and fails loudly on an unexpected response shape. Freshness is
+surfaced beside staleness in the overview, as a reliability reason in coverage, and in
+readiness; it is never folded into staleness.
+
+**A.2 reverse coverage.** `impact_of_change`, `staleness_report`, and `freshness_check` end
+with `memo_consequences`: assertions whose sources are affected, `unsupported` when every
+active source is, `weakened` when some are. The changed column itself counts as affected,
+so a leaf column that sources an assertion still surfaces it. Judgment assertions are
+included, labelled by kind, because their evidence inputs moved.
+
+**A.3 export.** `matter_export` writes one JSON document, `export_format_version` 1, to an
+`exports` folder beside the database by default (or a given path, or inline). It includes
+the coverage report computed at export time and the provenance log. No import is built.
+
+**A.4 readiness.** `table_readiness` composes `suite_check` scoped to the table, lifecycle
+state, unresolved consumed parameters, open failures, unticked dimensions, and freshness,
+grouped by cause with counts. No verdict field exists by design.
+
+**Not built from the addendum.** A.5 is a skill change (draw the graph), recorded in the
+skill's Orchestrate reference. The Review Tables API cannot read column definitions
+(verified 2026-09), so manual ingest stays primary; it can read row results, so a result
+importer is the next P4 candidate.
+
 ## §12 open questions: defaults chosen
 
 1. **Deployment and concurrency.** stdio-local, single database file, WAL mode. The

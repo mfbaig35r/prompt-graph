@@ -65,7 +65,7 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 }
 ```
 
-Restart Claude Desktop. The server appears as "prompt-graph" with 18 tools.
+Restart Claude Desktop. The server appears as "prompt-graph" with 21 tools.
 
 ### Claude Code
 
@@ -86,6 +86,15 @@ without client data:
 ```
 
 Point the MCP config at `/tmp/harbor-demo.db` and ask Claude to open Project Harbor.
+
+### Harvey Vault API (optional)
+
+Document-set freshness can poll the Harvey Vault API instead of relying on a manually
+supplied document count. Set `HARVEY_API_KEY` (a bearer token, server-side only) and, for
+EU or AU deployments, `HARVEY_API_BASE` (`https://eu.api.harvey.ai` or
+`https://au.api.harvey.ai`). Vault endpoints allow ten requests a minute per organisation;
+the server caches an observation for five minutes and never polls per column. Without a
+key, `freshness_check` accepts a manual count and says so in its findings.
 
 ## Upgrades
 
@@ -118,6 +127,9 @@ names; Claude calls them from natural-language requests.
 | `run_compare` | "Did v1.2 fix the notary problem without breaking anything?" |
 | `memo_outline_set` | "Here is the memo outline and what each section has to say" |
 | `coverage_check` | "Can the suite support the memo?" |
+| `freshness_check` | "Has the data room grown since we ran the leases table?" |
+| `table_readiness` | "Is the charter table ready to run against the real vault?" |
+| `matter_export` | "Give me a record of everything we reviewed and when." |
 
 Finding codes are listed in `PLAN.md`. Design choices and deviations from the
 requirements are in `DECISIONS.md`.
@@ -146,7 +158,7 @@ the skill is checked out beside the code and they run.
 
 ```
 src/prompt_graph/
-  server.py      the 18 MCP tools (docstrings written for the model)
+  server.py      the 21 MCP tools (docstrings written for the model)
   db.py          SQLite connection, WAL, versioned migrations
   constants.py   vocabulary, taxonomy, coverage dimensions, copied from the skill
   lint.py        prompt_check rules
@@ -156,7 +168,11 @@ src/prompt_graph/
   parameters.py  shared parameters and bindings
   checks.py      suite_check
   evaluation.py  runs, results, failures, run comparison
-  coverage.py    memo outline and coverage
+  coverage.py    memo outline, coverage, reverse coverage (column -> assertions)
+  freshness.py   document-set snapshots and source freshness
+  harvey.py      minimal Vault API client (stdlib, injectable fetcher)
+  readiness.py   table_readiness composition
+  export.py      matter_export
   seed.py        demo matter loader
 fixtures/demo_matter.json
 tests/

@@ -351,16 +351,17 @@ def matter_open(
     objective: str | None = None,
     side: str | None = None,
     actor: str | None = None,
+    vault_project_id: str | None = None,
 ) -> tuple[sqlite3.Row, bool]:
     """Return (matter row, created?)."""
     name = _norm(name)
     side = fold(side)
     row = conn.execute("SELECT * FROM matter WHERE name=?", (name,)).fetchone()
     if row is not None:
-        if objective is not None or side is not None:
+        if objective is not None or side is not None or vault_project_id is not None:
             conn.execute(
-                "UPDATE matter SET objective=COALESCE(?, objective), side=COALESCE(?, side) WHERE id=?",
-                (objective, side, row["id"]),
+                "UPDATE matter SET objective=COALESCE(?, objective), side=COALESCE(?, side), vault_project_id=COALESCE(?, vault_project_id) WHERE id=?",
+                (objective, side, vault_project_id, row["id"]),
             )
             row = conn.execute("SELECT * FROM matter WHERE id=?", (row["id"],)).fetchone()
         return row, False
@@ -369,8 +370,8 @@ def matter_open(
     if side is not None and side not in ("buy", "sell"):
         raise PromptGraphError("side must be 'buy' or 'sell'.")
     cur = conn.execute(
-        "INSERT INTO matter (name, objective, side, status, created_at) VALUES (?,?,?,?,?)",
-        (name, objective, side, "active", now()),
+        "INSERT INTO matter (name, objective, side, status, created_at, vault_project_id) VALUES (?,?,?,?,?,?)",
+        (name, objective, side, "active", now(), vault_project_id),
     )
     _provenance(conn, "matter", cur.lastrowid, "create", "chat", actor, {"name": name})
     return conn.execute("SELECT * FROM matter WHERE id=?", (cur.lastrowid,)).fetchone(), True
@@ -676,8 +677,8 @@ def table_ingest(
                 ).fetchone()[0]
             cur = conn.execute(
                 """INSERT INTO review_table (matter_id, name, review_unit, platform, grouping_enabled,
-                       max_docs_per_unit, stage, position, created_at)
-                   VALUES (?,?,?,?,?,?,?,?,?)""",
+                       max_docs_per_unit, stage, position, created_at, vault_project_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
                 (
                     matter_id,
                     table,
@@ -688,6 +689,7 @@ def table_ingest(
                     meta.stage,
                     pos,
                     now(),
+                    meta.vault_project_id,
                 ),
             )
             table_id = int(cur.lastrowid)
@@ -698,7 +700,8 @@ def table_ingest(
                 conn.execute(
                     """UPDATE review_table SET review_unit=COALESCE(?, review_unit),
                            platform=?, grouping_enabled=?, max_docs_per_unit=COALESCE(?, max_docs_per_unit),
-                           stage=COALESCE(?, stage), position=COALESCE(?, position) WHERE id=?""",
+                           stage=COALESCE(?, stage), position=COALESCE(?, position),
+                           vault_project_id=COALESCE(?, vault_project_id) WHERE id=?""",
                     (
                         meta.review_unit,
                         meta.platform,
@@ -706,6 +709,7 @@ def table_ingest(
                         meta.max_docs_per_unit,
                         meta.stage,
                         meta.position,
+                        meta.vault_project_id,
                         table_id,
                     ),
                 )

@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any
 
 from .evaluation import latest_run, open_failures, table_coverage
+from .freshness import freshness_map
 from .graph import staleness_map
 from .parameters import parameters_list
 from .service import current_instructions, effective_standard, table_columns
@@ -14,6 +15,7 @@ from .service import current_instructions, effective_standard, table_columns
 def matter_overview(conn: sqlite3.Connection, m: sqlite3.Row) -> dict[str, Any]:
     matter_id = int(m["id"])
     smap = staleness_map(conn, matter_id)
+    fmap = freshness_map(conn, matter_id)
     tables_out: list[dict[str, Any]] = []
     total_cols = 0
     total_open = 0
@@ -54,6 +56,8 @@ def matter_overview(conn: sqlite3.Connection, m: sqlite3.Row) -> dict[str, Any]:
                 "staleness": st_counts,
                 "open_failures": open_f,
                 "coverage_unticked": len(cov["unticked"]) if cov["has_run"] else None,
+                "document_set": fmap[int(t["id"])]["state"],
+                "vault_project_id": fmap[int(t["id"])]["vault_project_id"],
             }
         )
     params = parameters_list(conn, matter_id)
@@ -72,6 +76,11 @@ def matter_overview(conn: sqlite3.Connection, m: sqlite3.Row) -> dict[str, Any]:
         "column_count": total_cols,
         "staleness": stale_total,
         "open_failures": total_open,
+        "document_sets": {
+            k: sum(1 for e in fmap.values() if e["state"] == k)
+            for k in ("unobserved", "never_run", "unrecorded", "current", "moved")
+        },
+        "vault_project_id": m["vault_project_id"],
         "parameters": params,
         "unresolved_parameters": [p["name"] for p in params if p["status"] != "resolved"],
         "memo_outline": {"name": outline["name"], "version": int(outline["version"])}

@@ -261,8 +261,16 @@ def impact_of_column(conn: sqlite3.Connection, matter_id: int, column_id: int) -
     tables: dict[str, int] = {}
     for s in sequence:
         tables[s["table"]] = tables.get(s["table"], 0) + 1
+    from .coverage import assertions_for_columns, memo_findings
+
+    affected = {column_id: "changed"} | {
+        s["column_id"]: f"{s['impact']} dependent" for s in sequence
+    }
+    memo = assertions_for_columns(conn, matter_id, affected)
+    findings.extend(memo_findings(memo, "column", column_id, g.nodes[column_id].name))
     return {
         "subject": _node_dict(g, column_id),
+        "memo_consequences": memo,
         "affected_count": len(sequence),
         "direct_count": sum(1 for s in sequence if s["impact"] == "direct"),
         "transitive_count": sum(1 for s in sequence if s["impact"] == "transitive"),
@@ -404,7 +412,15 @@ def impact_of_parameter(
     tables: dict[str, int] = {}
     for s in sequence:
         tables[s["table"]] = tables.get(s["table"], 0) + 1
+    from .coverage import assertions_for_columns, memo_findings
+
+    affected = {
+        s["column_id"]: f"{s['impact']} consumer of '{parameter['name']}'" for s in sequence
+    }
+    memo = assertions_for_columns(conn, matter_id, affected)
+    findings.extend(memo_findings(memo, "parameter", pid, parameter["name"]))
     return {
+        "memo_consequences": memo,
         "subject": {
             "parameter": parameter["name"],
             "value": old_value,
@@ -610,4 +626,18 @@ def staleness_report(
                 },
             )
         )
-    return {"counts": counts, "stale": items, "rerun_order": order, "findings": findings}
+    from .coverage import assertions_for_columns, memo_findings
+
+    affected = {
+        i["column_id"]: f"{i['state']}ly stale" if i["state"] != "never_run" else "never run"
+        for i in items
+    }
+    memo = assertions_for_columns(conn, matter_id, affected)
+    findings.extend(memo_findings(memo, "matter", matter_id, "matter"))
+    return {
+        "counts": counts,
+        "stale": items,
+        "rerun_order": order,
+        "memo_consequences": memo,
+        "findings": findings,
+    }

@@ -84,6 +84,10 @@ class TableMeta(BaseModel):
     max_docs_per_unit: int | None = None
     stage: str | None = Field(default=None, description="Free-text lifecycle stage of the table.")
     position: int | None = Field(default=None, description="Order of the table within the matter.")
+    vault_project_id: str | None = Field(
+        default=None,
+        description="Harvey Vault project the table runs against, when it differs from the matter's.",
+    )
 
 
 class EntityRecord(BaseModel):

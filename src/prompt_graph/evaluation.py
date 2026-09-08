@@ -55,12 +55,28 @@ def run_record(
     columns: list[str] | None = None,
     coverage_dimensions: list[str] | None = None,
     actor: str | None = None,
+    documents_ready: int | None = None,
+    documents_as_of: str | None = None,
 ) -> dict[str, Any]:
+    from .freshness import latest_snapshot, record_snapshot, table_vault_project
+
     m = get_matter(conn, matter)
     t = get_table(conn, int(m["id"]), table)
     table_id = int(t["id"])
     findings: list[Finding] = []
     cols = table_columns(conn, table_id)
+    project = table_vault_project(conn, t)
+    if documents_ready is not None and not project:
+        findings.append(
+            Finding(
+                "DOCSET_NO_PROJECT",
+                "table",
+                table_id,
+                t["name"],
+                f"A document count was given but '{t['name']}' has no vault project id, so no snapshot was recorded.",
+                {},
+            )
+        )
     if columns:
         wanted = {c.strip().lower() for c in columns}
         chosen = [c for c in cols if c["name"].lower() in wanted]
@@ -107,6 +123,28 @@ def run_record(
         persisted_started_at = conn.execute(
             "SELECT started_at FROM run WHERE id=?", (run_id,)
         ).fetchone()[0]
+        docset = None
+        if project:
+            if documents_ready is not None:
+                docset = record_snapshot(
+                    conn,
+                    int(m["id"]),
+                    project,
+                    "manual",
+                    documents_ready,
+                    None,
+                    None,
+                    "Recorded with run",
+                    documents_as_of or persisted_started_at,
+                    actor,
+                )
+            else:
+                docset = latest_snapshot(conn, int(m["id"]), project)
+            if docset is not None:
+                conn.execute(
+                    "UPDATE run SET document_set_snapshot_id=? WHERE id=?",
+                    (int(docset["id"]), run_id),
+                )
         snapshot: list[dict[str, Any]] = []
         for c in chosen:
             pv = current_prompt(conn, int(c["id"]))
@@ -135,12 +173,31 @@ def run_record(
     except Exception:
         conn.execute("ROLLBACK")
         raise
+    if project and docset is None:
+        findings.append(
+            Finding(
+                "DOCSET_UNRECORDED",
+                "run",
+                run_id,
+                t["name"],
+                f"No document-set snapshot exists for vault project {project}, so this run cannot be compared for freshness; give documents_ready or run freshness_check with refresh.",
+                {"vault_project_id": project},
+            )
+        )
     return {
         "matter": m["name"],
         "table": t["name"],
         "run_id": run_id,
         "started_at": persisted_started_at,
         "instructions_version": int(ti["version"]) if ti else None,
+        "document_set": {
+            "snapshot_id": int(docset["id"]),
+            "ready_count": docset["ready_count"],
+            "observed_at": docset["observed_at"],
+            "source": docset["source"],
+        }
+        if docset is not None
+        else None,
         "snapshot": snapshot,
         "coverage_dimensions": dims,
         "findings": findings,

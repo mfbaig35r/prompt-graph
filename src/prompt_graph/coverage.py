@@ -110,8 +110,11 @@ def coverage_check(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
         raise PromptGraphError(
             "No memo outline is stored for this matter. Use memo_outline_set to capture the memo's sections and assertions first."
         )
+    from .freshness import freshness_map
+
     findings: list[Finding] = []
     smap = staleness_map(conn, matter_id)
+    fmap = freshness_map(conn, matter_id)
     tcov_cache: dict[int, dict[str, Any]] = {}
 
     def column_reliability(col_id: int) -> dict[str, Any]:
@@ -140,6 +143,9 @@ def coverage_check(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
             reasons.append(
                 f"{len(tc['unticked'])} test-set dimension(s) unticked for table '{c['table_name']}'"
             )
+        fr = fmap.get(tid)
+        if fr and fr["state"] == "moved":
+            reasons.append("document set moved since last run")
         return {
             "table": c["table_name"],
             "column": c["name"],
@@ -307,3 +313,81 @@ def coverage_check(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
         "unsourced_columns": unsourced,
         "findings": findings,
     }
+
+
+# ---------------------------------------------------------------------------
+# Reverse coverage (Addendum A.2): from affected columns to the memo assertions they support
+# ---------------------------------------------------------------------------
+
+
+def assertions_for_columns(
+    conn: sqlite3.Connection, matter_id: int, affected: dict[int, str]
+) -> list[dict[str, Any]]:
+    """Memo assertions whose sources include any affected column.
+
+    `affected` maps column id -> reason. An assertion is `unsupported` when every active
+    source is affected, `weakened` when some are. Judgment assertions are reported too,
+    labelled by kind, because their evidence inputs have moved.
+    """
+    outline = conn.execute(
+        "SELECT id FROM memo_outline WHERE matter_id=? AND is_current=1", (matter_id,)
+    ).fetchone()
+    if outline is None or not affected:
+        return []
+    rows = conn.execute(
+        """SELECT ma.id AS assertion_id, ma.text, ma.kind, ms.name AS section, asrc.column_id,
+                  c.name AS column_name, c.status, rt.name AS table_name
+           FROM memo_assertion ma
+           JOIN memo_section ms ON ms.id=ma.section_id
+           JOIN assertion_source asrc ON asrc.assertion_id=ma.id
+           JOIN column_def c ON c.id=asrc.column_id
+           JOIN review_table rt ON rt.id=c.table_id
+           WHERE ms.outline_id=? ORDER BY ms.position, ma.position""",
+        (int(outline["id"]),),
+    ).fetchall()
+    by_assertion: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        a = by_assertion.setdefault(
+            int(r["assertion_id"]),
+            {"section": r["section"], "assertion": r["text"], "kind": r["kind"], "sources": []},
+        )
+        cid = int(r["column_id"])
+        a["sources"].append(
+            {
+                "table": r["table_name"],
+                "column": r["column_name"],
+                "affected": cid in affected,
+                "reason": affected.get(cid),
+                "retired": r["status"] == "retired",
+            }
+        )
+    out: list[dict[str, Any]] = []
+    for a in by_assertion.values():
+        active = [x for x in a["sources"] if not x["retired"]]
+        hit = [x for x in active if x["affected"]]
+        if not hit:
+            continue
+        a["status"] = "unsupported" if len(hit) == len(active) else "weakened"
+        out.append(a)
+    return out
+
+
+def memo_findings(
+    memo: list[dict[str, Any]], subject_type: str, subject_id: int | None, subject_name: str
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for a in memo:
+        hit = [x for x in a["sources"] if x["affected"]]
+        findings.append(
+            Finding(
+                "MEMO_ASSERTION_AT_RISK",
+                subject_type,
+                subject_id,
+                subject_name,
+                f"The {a['kind']} assertion '{a['assertion'][:80]}' in section '{a['section']}' is {a['status']}: "
+                + "; ".join(f"{x['table']} / {x['column']} ({x['reason']})" for x in hit)
+                + ".",
+                {"section": a["section"], "status": a["status"], "kind": a["kind"]},
+            )
+        )
+    return findings

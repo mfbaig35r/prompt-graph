@@ -18,7 +18,19 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field
 
 from . import checks as checks_mod
-from . import coverage, db, evaluation, graph, lint, overview, parameters, service
+from . import (
+    coverage,
+    db,
+    evaluation,
+    export,
+    freshness,
+    graph,
+    lint,
+    overview,
+    parameters,
+    readiness,
+    service,
+)
 from .constants import COVERAGE_DIMENSION_KEYS, FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
 from .findings import Finding, PromptGraphError, dump
 from .models import (
@@ -216,6 +228,12 @@ def matter_open(
         str | None, Field(description="One or two sentences on the review objective.")
     ] = None,
     side: SideOpt = None,
+    vault_project_id: Annotated[
+        str | None,
+        Field(
+            description="Harvey Vault project id the matter's tables run against, for document-set freshness. Tables can override it."
+        ),
+    ] = None,
     actor: Actor = None,
 ) -> dict[str, Any]:
     """Open a matter and return its full suite-level state, or list the matters that exist.
@@ -245,7 +263,13 @@ def matter_open(
             "findings": [],
         }
     m, created = service.matter_open(
-        conn, name, create=create, objective=objective, side=side, actor=actor
+        conn,
+        name,
+        create=create,
+        objective=objective,
+        side=side,
+        actor=actor,
+        vault_project_id=vault_project_id,
     )
     out = overview.matter_overview(conn, m)
     out["created"] = created
@@ -812,13 +836,29 @@ def run_record(
             description="Test-set dimensions from the skill's evaluation log that the corpus covered. Tick only what was actually tested."
         ),
     ] = None,
+    documents_ready: Annotated[
+        int | None,
+        Field(
+            description="How many documents were in the vault and ready when the run started; records a manual document-set snapshot for freshness.",
+            ge=0,
+        ),
+    ] = None,
+    documents_as_of: Annotated[
+        str | None,
+        Field(
+            description="ISO 8601 time the document count was observed; defaults to the run start."
+        ),
+    ] = None,
     actor: Actor = None,
 ) -> dict[str, Any]:
-    """Record that a table was run in Harvey, snapshotting the prompt version of each column.
+    """Record that a table was run in Harvey, snapshotting the prompt version of each column
+    and the document set it ran against.
 
-    Staleness is computed against this snapshot, so record a run before logging results.
-    Tick only the coverage dimensions the corpus actually covered; an unticked dimension is
-    treated as open risk by coverage_check.
+    Staleness is computed against the prompt snapshot, freshness against the document-set
+    snapshot, so record a run before logging results. If documents_ready is omitted, the
+    latest snapshot for the table's vault project is linked (from freshness_check). Tick only
+    the coverage dimensions the corpus actually covered; an unticked dimension is treated as
+    open risk by coverage_check.
     """
     return evaluation.run_record(
         get_conn(),
@@ -831,6 +871,8 @@ def run_record(
         columns,
         coverage_dimensions,
         actor,
+        documents_ready,
+        documents_as_of,
     )
 
 
@@ -939,6 +981,129 @@ def coverage_check(matter: Matter) -> dict[str, Any]:
     reading it as failure.
     """
     return coverage.coverage_check(get_conn(), matter)
+
+
+# ---------------------------------------------------------------------------
+# Freshness, readiness, export (Addendum A)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+@_tool
+def freshness_check(
+    matter: Matter,
+    table: Annotated[
+        str | None,
+        Field(
+            description="Limit to one table (and, with refresh, observe only its vault project)."
+        ),
+    ] = None,
+    refresh: Annotated[
+        bool,
+        Field(
+            description="Observe the vault now: from the Harvey Vault API when HARVEY_API_KEY is configured, or from the manual count given here."
+        ),
+    ] = False,
+    ready_count: Annotated[
+        int | None,
+        Field(
+            description="Manual observation: how many documents are ready in the vault right now.",
+            ge=0,
+        ),
+    ] = None,
+    as_of: Annotated[
+        str | None, Field(description="ISO 8601 time of the manual observation; defaults to now.")
+    ] = None,
+    latest_uploaded_at: Annotated[
+        str | None,
+        Field(description="Manual observation: upload time of the newest document, if known."),
+    ] = None,
+    file_ids: Annotated[
+        list[str] | None,
+        Field(
+            description="Manual observation: the ready file ids, if you have them; lets additions and removals be counted exactly."
+        ),
+    ] = None,
+    vault_project_id: Annotated[
+        str | None,
+        Field(description="Observe this vault project instead of the one on the table or matter."),
+    ] = None,
+    note: Annotated[
+        str | None, Field(description="Where the manual observation came from.")
+    ] = None,
+    force: Annotated[
+        bool, Field(description="Poll the API even if it was polled in the last five minutes.")
+    ] = False,
+    actor: Actor = None,
+) -> dict[str, Any]:
+    """Has the document set moved since each table last ran? Source freshness, alongside staleness.
+
+    A column can be verified, not stale, and passing while being wrong because the vault
+    grew since it ran. Per table: 'moved' (documents added or removed since the last run,
+    with the counts), 'current', 'unrecorded' (the last run has no document-set snapshot),
+    'never_run', or 'unobserved' (no snapshot at all). With refresh=true a new snapshot is
+    taken first: from the Harvey Vault API (10 requests a minute per organisation, so a
+    poll inside five minutes returns the cached snapshot unless force=true) or from a
+    manual count. Findings carry the observation's provenance; a manual count is a weaker
+    claim than an API enumeration. Ends with the memo assertions whose sources ran against
+    a moved set. Whether the new documents matter is the attorney's call.
+    """
+    return freshness.freshness_check(
+        get_conn(),
+        matter,
+        table,
+        refresh,
+        ready_count,
+        as_of,
+        latest_uploaded_at,
+        file_ids,
+        vault_project_id,
+        note,
+        force,
+        actor,
+    )
+
+
+@mcp.tool()
+@_tool
+def table_readiness(matter: Matter, table: Table) -> dict[str, Any]:
+    """Is this table ready to run against the real vault? One call, findings grouped by cause.
+
+    Composes: prompt lint on every column; graph, parameter, and consistency checks scoped
+    to the table; unresolved shared parameters the table consumes; columns still draft or
+    testing, stale, or never run; open failures from the latest results; unticked test-set
+    dimensions; document-set freshness. Returns counts by cause and no verdict: readiness
+    against a live client matter is a judgment, and this makes sure nothing is missed.
+    """
+    return readiness.table_readiness(get_conn(), matter, table)
+
+
+@mcp.tool()
+@_tool
+def matter_export(
+    matter: Matter,
+    write_to: Annotated[
+        str | None,
+        Field(
+            description="File or directory to write the JSON to. Default: an 'exports' folder beside the database."
+        ),
+    ] = None,
+    inline: Annotated[
+        bool,
+        Field(description="Return the document in the result instead of writing a file. Large."),
+    ] = False,
+) -> dict[str, Any]:
+    """Serialise the whole matter to one versioned JSON document: a record of how the diligence
+    was conducted.
+
+    Contains the standard in effect, every table and its Table Instructions versions, every
+    column with full prompt history, the dependency graph, shared parameters and bindings,
+    every run with its prompt-version and document-set snapshots, all evaluation results,
+    the memo outline and coverage state, and the provenance log. Useful at closing, on
+    handoff, on a lateral departure, in any later question about what was reviewed and when,
+    and as disaster recovery for the database file. Returns the path and counts.
+    """
+    return export.matter_export(get_conn(), matter, write_to, inline)
 
 
 # ---------------------------------------------------------------------------

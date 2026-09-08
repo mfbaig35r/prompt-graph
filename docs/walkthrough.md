@@ -159,7 +159,7 @@ If you have used dbt exposures, this is that, with the sufficiency test the expo
 
 I want to be honest about the edges, because a tool that overclaims in legal is worse than no tool.
 
-It does not talk to Harvey. Prompts go in by export or paste, results come back by export or paste. Whether a direct integration is worth building depends on what the existing Harvey connector in the Claude app exposes, and I have not finished inventorying that.
+It barely talks to Harvey. Prompts go in by export or paste, and results come back the same way. The one thing it will ask Harvey directly, if you give it an API key, is how many documents are in the vault, so it can tell you that a table last ran against 400 documents and there are now 447. Without a key you tell it the count yourself and it says so in the finding. Harvey's API cannot read column definitions, so that is not a shortcut around ingest.
 
 It does not stop someone editing a prompt in the Harvey UI and forgetting to tell it. The inventory is authoritative by policy, and the reconciliation path is to re-ingest the export, which is safe and will show you what moved. But it is a policy, not a lock.
 

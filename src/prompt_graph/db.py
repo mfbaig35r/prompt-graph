@@ -267,6 +267,31 @@ CREATE TABLE provenance (
 CREATE INDEX idx_provenance_entity ON provenance(entity_type, entity_id);
 """,
     ),
+    (
+        2,
+        """
+-- Source freshness (Addendum A.1): what document set each run executed against.
+ALTER TABLE matter ADD COLUMN vault_project_id TEXT;
+ALTER TABLE review_table ADD COLUMN vault_project_id TEXT;
+
+CREATE TABLE document_set_snapshot (
+    id                  INTEGER PRIMARY KEY,
+    matter_id           INTEGER NOT NULL REFERENCES matter(id),
+    vault_project_id    TEXT NOT NULL,
+    observed_at         TEXT NOT NULL,
+    ready_count         INTEGER,
+    latest_uploaded_at  TEXT,
+    set_hash            TEXT,
+    file_ids            TEXT,               -- json list of ready_to_query file ids, when enumerated
+    source              TEXT NOT NULL CHECK (source IN ('harvey_api','manual')),
+    note                TEXT,
+    created_at          TEXT NOT NULL
+);
+CREATE INDEX idx_docset_project ON document_set_snapshot(matter_id, vault_project_id, observed_at);
+
+ALTER TABLE run ADD COLUMN document_set_snapshot_id INTEGER REFERENCES document_set_snapshot(id);
+""",
+    ),
 ]
 
 
