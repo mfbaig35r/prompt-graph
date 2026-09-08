@@ -60,7 +60,7 @@ jobs:
                       await s.initialize()
                       tools = await s.list_tools()
                       assert len(tools.tools) == 18, len(tools.tools)
-                      res = await s.call_tool("matter_open", {"name": "CI"})
+                      res = await s.call_tool("matter_open", {"name": "CI", "create": True})
                       assert res.structuredContent["created"] is True
               print("stdio ok")
 
