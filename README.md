@@ -136,6 +136,12 @@ uv pip install --python .venv/bin/python -e ".[dev]"
 
 Tests run against an in-memory database; nothing touches `~/.prompt-graph`.
 
+CI runs ruff, the tests on Python 3.11 and 3.12, and a stdio start-up check on every push
+and pull request. The tests that pin the server's vocabularies to the skill's files skip in
+CI unless the repository secret `SKILL_REPO_TOKEN` (a fine-grained personal access token
+with read access to `mfbaig35r/legal-review-table-builder`) is configured, in which case
+the skill is checked out beside the code and they run.
+
 ## Layout
 
 ```

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      # The skill lives in a separate private repo. When SKILL_REPO_TOKEN (a fine-grained PAT
+      # with read access to mfbaig35r/legal-review-table-builder) is configured, check it out
+      # so the tests that pin vocabularies to the skill's files run; otherwise those tests skip.
+      - name: Check out the skill (optional)
+        if: ${{ env.SKILL_REPO_TOKEN != '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: mfbaig35r/legal-review-table-builder
+          token: ${{ env.SKILL_REPO_TOKEN }}
+          path: legal-review-table-builder-skill
+        env:
+          SKILL_REPO_TOKEN: ${{ secrets.SKILL_REPO_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Ruff check
+        run: ruff check src tests
+
+      - name: Ruff format
+        run: ruff format --check src tests
+
+      - name: Tests
+        env:
+          LEGAL_REVIEW_SKILL_DIR: ${{ github.workspace }}/legal-review-table-builder-skill
+        run: pytest -q -rs
+
+      - name: Server starts over stdio
+        run: |
+          python - <<'PY'
+          import asyncio, os, tempfile
+          from mcp import ClientSession, StdioServerParameters
+          from mcp.client.stdio import stdio_client
+
+          async def main():
+              env = {**os.environ, "PROMPT_GRAPH_DB": os.path.join(tempfile.mkdtemp(), "ci.db")}
+              async with stdio_client(StdioServerParameters(command="prompt-graph", env=env)) as (r, w):
+                  async with ClientSession(r, w) as s:
+                      await s.initialize()
+                      tools = await s.list_tools()
+                      assert len(tools.tools) == 18, len(tools.tools)
+                      res = await s.call_tool("matter_open", {"name": "CI"})
+                      assert res.structuredContent["created"] is True
+              print("stdio ok")
+
+          asyncio.run(main())
+          PY
