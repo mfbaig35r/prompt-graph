@@ -48,7 +48,7 @@ def test_tool_surface():
 
 
 def test_call_tools_with_json_arguments(conn):
-    r = call("matter_open", name="Project Delta", objective="Buy side", side="buy")
+    r = call("matter_open", name="Project Delta", create=True, objective="Buy side", side="buy")
     assert r["created"] is True and r["table_count"] == 0
     r = call(
         "table_ingest",

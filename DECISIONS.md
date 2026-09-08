@@ -36,6 +36,27 @@ record) comes back as `{"error": "..."}` in the tool result rather than an MCP t
 The message is written for the model and lists what does exist ("Tables: …"). Genuine bugs
 still raise.
 
+**Closed sets are enums at the tool boundary, soft inside batches.** After an ergonomics
+review (2026-09-07), every scalar argument with a closed value set (`scope`, `side`, `status`,
+`role`, `bump`, `group_by`, `source_type`, `native_type` on `prompt_check` and
+`column_revise`, parameter status, check families) is a `Literal` in the schema, case-folded
+on the way in so `"Draft"` is `draft`. Fields inside batch models (`ColumnRecord.native_type`,
+`EvalRecord.failure_class`, `error_type`) stay strings, because a `Literal` there would let one
+bad record reject a whole batch at the client; the server stores the batch and reports the bad
+record instead. Every top-level parameter carries a description in the schema.
+
+**Matter discovery and creation.** `matter_open` with no name lists the matters. `create`
+defaults to false: a typo returns the real matters instead of silently creating a phantom
+matter in a client-data store, at the cost of one extra call on first creation.
+
+**`columns_find` pages.** `limit` (default 100, max 500) and `offset`, with `total` and
+`truncated` in the result, so a twenty-table matter cannot return 130KB in one call.
+
+**Coverage findings are specific.** `COV_NOMINAL_ONLY` names each unreliable source and its
+reasons in the observation, so the most specific sentence is the one the model leads with;
+`sections[]` remains the structured truth. The per-source `COV_SOURCE_STALE` finding was
+removed as a duplicate.
+
 ## Vocabulary and taxonomy (deviation from §6)
 
 **Failure classes are the skill's nineteen, not the requirements' eight.** §6 lists eight

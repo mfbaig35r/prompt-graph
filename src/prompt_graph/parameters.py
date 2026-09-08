@@ -8,7 +8,7 @@ from typing import Any
 from .constants import BINDING_SITES, PARAMETER_STATUSES
 from .db import now
 from .findings import Finding, PromptGraphError
-from .models import ConsumerBinding
+from .models import ConsumerBinding, fold
 from .service import (
     _norm,
     _provenance,
@@ -72,6 +72,7 @@ def parameter_set(
     m = get_matter(conn, matter)
     matter_id = int(m["id"])
     name = _norm(name)
+    status = fold(status)
     if status is not None and status not in PARAMETER_STATUSES:
         raise PromptGraphError(f"status must be one of {', '.join(PARAMETER_STATUSES)}.")
     findings: list[Finding] = []

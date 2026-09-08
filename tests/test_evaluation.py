@@ -211,6 +211,6 @@ def test_matter_overview_counts(harbor_evaluated):
 
 
 def test_run_on_unknown_column_errors(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T", [col("A", 1, CLEAN_FR)])
     assert "Unknown columns" in run_record("M", "T", columns=["Nope"])["error"]

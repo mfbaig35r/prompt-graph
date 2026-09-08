@@ -17,7 +17,7 @@ from .constants import (
 )
 from .db import now
 from .findings import Finding, PromptGraphError
-from .models import EvalRecord
+from .models import EvalRecord, fold
 from .service import (
     _provenance,
     current_instructions,
@@ -104,6 +104,9 @@ def run_record(
             (table_id, started_at or now(), note, evaluator, corpus_note, now()),
         )
         run_id = int(cur.lastrowid)
+        persisted_started_at = conn.execute(
+            "SELECT started_at FROM run WHERE id=?", (run_id,)
+        ).fetchone()[0]
         snapshot: list[dict[str, Any]] = []
         for c in chosen:
             pv = current_prompt(conn, int(c["id"]))
@@ -136,7 +139,7 @@ def run_record(
         "matter": m["name"],
         "table": t["name"],
         "run_id": run_id,
-        "started_at": started_at or "now",
+        "started_at": persisted_started_at,
         "instructions_version": int(ti["version"]) if ti else None,
         "snapshot": snapshot,
         "coverage_dimensions": dims,
@@ -362,6 +365,7 @@ def failures_summary(
 ) -> dict[str, Any]:
     m = get_matter(conn, matter)
     matter_id = int(m["id"])
+    group_by = fold(group_by) or "class"
     if group_by not in ("class", "table", "column"):
         raise PromptGraphError("group_by must be class, table, or column.")
     tables = conn.execute(

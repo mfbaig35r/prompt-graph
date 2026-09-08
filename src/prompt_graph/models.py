@@ -9,6 +9,11 @@ from pydantic import BaseModel, Field, field_validator
 from .constants import NATIVE_TYPE_ALIASES
 
 
+def fold(v: Any) -> Any:
+    """Case-fold a closed-set label the way a model echoes it from a UI ('Draft' -> 'draft')."""
+    return v.strip().lower() if isinstance(v, str) else v
+
+
 class ColumnRecord(BaseModel):
     """One normalized column, as described in requirements §5."""
 
@@ -47,6 +52,11 @@ class ColumnRecord(BaseModel):
         default=None,
         description="Real analytical dependencies Harvey cannot express, on columns in other tables.",
     )
+
+    @field_validator("status", "role", mode="before")
+    @classmethod
+    def _fold(cls, v: Any) -> Any:
+        return fold(v)
 
     @field_validator("native_type", mode="before")
     @classmethod
@@ -95,6 +105,11 @@ class ConsumerBinding(BaseModel):
         description="table_instructions | column_prompt — where the value is bound.",
     )
 
+    @field_validator("site", mode="before")
+    @classmethod
+    def _fold(cls, v: Any) -> Any:
+        return fold(v)
+
 
 class EvalRecord(BaseModel):
     """One row of the skill's evaluation log (assets/evaluation-log-template.csv)."""
@@ -133,6 +148,11 @@ class AssertionRecord(BaseModel):
         "will consult (judgment).",
     )
     note: str | None = None
+
+    @field_validator("kind", mode="before")
+    @classmethod
+    def _fold(cls, v: Any) -> Any:
+        return fold(v)
 
 
 class SourceRef(BaseModel):

@@ -83,7 +83,7 @@ def test_impact_of_parameter_lists_consumers_and_text_sites(harbor):
 
 
 def test_impact_column_level_binding_is_direct_and_downstream_transitive(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T1", [col("Name", 1, CLEAN_FR)])
     table_ingest(
         "M", "T2", [col("Party", 1, CLEAN_FR), col("Detail", 2, "Use @Party.\n" + CLEAN_FR)]
@@ -106,7 +106,7 @@ def test_impact_column_level_binding_is_direct_and_downstream_transitive(conn):
 
 
 def test_cycle_via_advisory_edges_does_not_loop(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T1", [col("A", 1, CLEAN_FR)])
     table_ingest(
         "M", "T2", [col("B", 1, CLEAN_FR, advisory_upstream=[AdvisoryRef(table="T1", column="A")])]
@@ -125,7 +125,7 @@ def test_cycle_via_advisory_edges_does_not_loop(conn):
 
 
 def test_cycle_via_forward_and_back_references(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T",
@@ -144,7 +144,7 @@ def test_cycle_via_forward_and_back_references(conn):
 
 
 def test_three_node_cycle_across_three_tables(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T1", [col("A", 1, CLEAN_FR)])
     table_ingest(
         "M", "T2", [col("B", 1, CLEAN_FR, advisory_upstream=[AdvisoryRef(table="T1", column="A")])]

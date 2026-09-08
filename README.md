@@ -100,7 +100,7 @@ names; Claude calls them from natural-language requests.
 
 | Tool | What the user asks |
 | --- | --- |
-| `matter_open` | "Open Project Harbor" / "Where are we on Harbor?" |
+| `matter_open` | "Open Project Harbor" / "Where are we on Harbor?" / "What matters do we have?" |
 | `standard_set` | "Set the firm baseline" / "The review subjects for this matter are…" |
 | `table_ingest` | "Here is the entity table" (Claude extracts records from the export) |
 | `table_instructions_set` | "Update the Table Instructions on the contracts table" |

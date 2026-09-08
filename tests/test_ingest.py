@@ -19,7 +19,7 @@ def _ingest(conn, cols, **kw):
 
 
 def test_ingest_assigns_v1_and_resolves_refs(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(
         conn,
         [
@@ -45,7 +45,7 @@ def test_ingest_assigns_v1_and_resolves_refs(conn):
 
 
 def test_reingest_unchanged_creates_no_versions(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     cols = [col("A", 1, CLEAN_FR), col("B", 2, CLEAN_FR)]
     _ingest(conn, cols)
     res = _ingest(conn, cols)
@@ -59,7 +59,7 @@ def test_reingest_unchanged_creates_no_versions(conn):
 
 
 def test_reingest_changed_text_versions_not_duplicates(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(conn, [col("A", 1, CLEAN_FR), col("B", 2, CLEAN_FR)])
     res = _ingest(
         conn, [col("A", 1, CLEAN_FR + "\nExtra rule."), col("B", 2, CLEAN_FR)], source_type="excel"
@@ -74,7 +74,7 @@ def test_reingest_changed_text_versions_not_duplicates(conn):
 
 
 def test_reingest_reports_absent_columns_without_retiring(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(conn, [col("A", 1, CLEAN_FR), col("B", 2, CLEAN_FR)])
     res = _ingest(conn, [col("A", 1, CLEAN_FR)])
     absent = [f for f in res["findings"] if f["code"] == "COLUMN_ABSENT_FROM_INGEST"]
@@ -83,7 +83,7 @@ def test_reingest_reports_absent_columns_without_retiring(conn):
 
 
 def test_rename_is_explicit_and_reports_stale_references(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(
         conn,
         [
@@ -110,7 +110,7 @@ def test_rename_is_explicit_and_reports_stale_references(conn):
 
 
 def test_missing_native_type_is_skipped_and_reported(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(
         conn, [ColumnRecord(name="X", position=1, prompt_text=CLEAN_FR), col("Y", 2, CLEAN_FR)]
     )
@@ -119,7 +119,7 @@ def test_missing_native_type_is_skipped_and_reported(conn):
 
 
 def test_native_type_aliases_normalise(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(
         conn,
         [
@@ -133,13 +133,13 @@ def test_native_type_aliases_normalise(conn):
 
 
 def test_invalid_native_type_reported(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(conn, [col("X", 1, CLEAN_FR, "Boolean")])
     assert res["skipped"] == ["X"] and "NATIVE_TYPE_INVALID" in _codes(res)
 
 
 def test_classify_without_options_and_options_on_wrong_type(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(
         conn, [col("X", 1, CLEAN_CLASSIFY, "Classify"), col("Y", 2, CLEAN_FR, "Date", ["A"])]
     )
@@ -149,7 +149,7 @@ def test_classify_without_options_and_options_on_wrong_type(conn):
 
 
 def test_malformed_options_and_duplicate_positions(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(
         conn, [col("X", 1, CLEAN_CLASSIFY, "Classify", ["A", "a", ""]), col("Y", 1, CLEAN_FR)]
     )
@@ -158,14 +158,14 @@ def test_malformed_options_and_duplicate_positions(conn):
 
 
 def test_unresolved_reference_reported_on_ingest(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     res = _ingest(conn, [col("X", 1, "Use @Nothing Here.\n" + CLEAN_FR)])
     fs = [f for f in res["findings"] if f["code"] == "REF_UNRESOLVED"]
     assert fs and fs[0]["evidence"]["reference"] == "Nothing Here"
 
 
 def test_declared_upstream_refs_resolve_when_text_lacks_them(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(
         conn,
         [
@@ -177,7 +177,7 @@ def test_declared_upstream_refs_resolve_when_text_lacks_them(conn):
 
 
 def test_column_revise_versions_and_status(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(conn, [col("A", 1, CLEAN_FR)])
     r = column_revise(
         M,
@@ -200,7 +200,7 @@ def test_column_revise_versions_and_status(conn):
 
 
 def test_retire_reports_dependents(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(
         conn,
         [
@@ -215,7 +215,7 @@ def test_retire_reports_dependents(conn):
 
 
 def test_table_meta_and_provenance(conn):
-    matter_open(M)
+    matter_open(M, create=True)
     _ingest(
         conn,
         [col("A", 1, CLEAN_FR)],
@@ -230,6 +230,6 @@ def test_table_meta_and_provenance(conn):
 
 
 def test_names_resolve_case_and_whitespace_insensitively(conn):
-    matter_open("  Project   X ")
+    matter_open("  Project   X ", create=True)
     table_ingest("project x", "Entities", [col("Some Column", 1, CLEAN_FR)])
     assert column_read("PROJECT X", "entities", "some column")["name"] == "Some Column"

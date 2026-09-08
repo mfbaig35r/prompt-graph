@@ -12,13 +12,14 @@ import os
 import sqlite3
 import sys
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import FastMCP
+from pydantic import BeforeValidator, Field
 
 from . import checks as checks_mod
 from . import coverage, db, evaluation, graph, lint, overview, parameters, service
-from .constants import FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES, NATIVE_TYPES
+from .constants import FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
 from .findings import Finding, PromptGraphError, dump
 from .models import (
     ColumnRecord,
@@ -27,6 +28,7 @@ from .models import (
     EvalRecord,
     SectionRecord,
     TableMeta,
+    fold,
 )
 
 INSTRUCTIONS = """Prompt Graph stores, versions, validates, and computes over the Harvey review-table
@@ -35,8 +37,10 @@ legal-review-table-builder skill does that), never parses files (read the export
 normalized records), and never makes legal determinations.
 
 Tools return findings: {code, subject_type, subject_id, subject_name, observation, evidence}.
-An observation is one factual sentence. Interpret it for the user in the skill's voice; do
-not show raw JSON or internal ids unless asked.
+An observation is one factual sentence. Interpret it for the user in the skill's voice.
+Every matter, table, column, and parameter is addressed by name. Ids in results exist so you
+can pass them back to tools (run_id to eval_record or run_compare, for example); never show
+an id or raw JSON to the user unless they ask.
 
 Typical session: matter_open → table_ingest (per table) → parameter_set (shared entities such
 as the target's legal name) → suite_check → impact_of_change before any rerun →
@@ -55,7 +59,7 @@ def get_conn() -> sqlite3.Connection:
     return _conn
 
 
-def set_conn(conn: sqlite3.Connection) -> None:
+def set_conn(conn: sqlite3.Connection | None) -> None:
     """Used by tests to point the tools at an in-memory database."""
     global _conn
     _conn = conn
@@ -84,6 +88,107 @@ def _tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Parameter types: closed sets are enums (case-folded on the way in), every scalar has a
+# description the model can read. Fields inside batch models stay soft so one bad record
+# never rejects a whole batch; see DECISIONS.md.
+# ---------------------------------------------------------------------------
+
+
+def _native(v: Any) -> Any:
+    return NATIVE_TYPE_ALIASES.get(v.strip().lower(), v.strip()) if isinstance(v, str) else v
+
+
+Matter = Annotated[str, Field(description="Matter name, as the user says it (case-insensitive).")]
+Table = Annotated[str, Field(description="Review table name within the matter.")]
+Column = Annotated[str, Field(description="Column name within the table.")]
+Actor = Annotated[
+    str | None,
+    Field(
+        description="Who is doing this, for the change log: a name or role such as 'J. Doe' "
+        "or 'paralegal'. Optional; not authenticated."
+    ),
+]
+NativeType = Annotated[
+    Literal["Classify", "Date", "Currency", "Number", "Duration", "Verbatim", "FreeResponse"],
+    BeforeValidator(_native),
+    Field(
+        description="Harvey column type. 'Free Response', 'text', and lower-case spellings are accepted."
+    ),
+]
+Status = Annotated[
+    Literal["draft", "testing", "verified", "retired"],
+    BeforeValidator(fold),
+    Field(description="Column lifecycle status."),
+]
+Role = Annotated[
+    Literal["orientation", "extraction", "validation", "reconciliation", "human_review"],
+    BeforeValidator(fold),
+    Field(description="Stage in the skill's staged design pattern."),
+]
+Bump = Annotated[
+    Literal["minor", "major"],
+    BeforeValidator(fold),
+    Field(
+        description="Version increment: minor (v1.1) for a revision, major (v2.0) for a redesign."
+    ),
+]
+Side = Annotated[
+    Literal["buy", "sell"],
+    BeforeValidator(fold),
+    Field(description="Which side of the transaction the review is on."),
+]
+Scope = Annotated[
+    Literal["firm", "matter"],
+    BeforeValidator(fold),
+    Field(
+        description="'firm' for the baseline every matter inherits; 'matter' for one matter's overlay."
+    ),
+]
+SourceType = Annotated[
+    Literal["chat", "excel", "csv", "harvey_export", "drafted"],
+    BeforeValidator(fold),
+    Field(description="Where the records came from, recorded as provenance."),
+]
+GroupBy = Annotated[
+    Literal["class", "table", "column"],
+    BeforeValidator(fold),
+    Field(description="How to group the open failures."),
+]
+ParamStatus = Annotated[
+    Literal["unresolved", "resolved", "contested"],
+    BeforeValidator(fold),
+    Field(
+        description="Resolution status. Defaults to resolved when a value is given, else unresolved."
+    ),
+]
+
+
+def _optional(inner: Any, description: str) -> Any:
+    """`X | None` with the description on the outer field, where every client reads it."""
+    return Annotated[inner | None, Field(description=description)]
+
+
+SideOpt = _optional(Side, "Which side of the transaction the review is on.")
+StatusOpt = _optional(Status, "Column lifecycle status.")
+RoleOpt = _optional(Role, "Stage in the skill's staged design pattern.")
+NativeTypeOpt = _optional(
+    NativeType,
+    "Harvey column type. 'Free Response', 'text', and lower-case spellings are accepted.",
+)
+ParamStatusOpt = _optional(
+    ParamStatus, "Resolution status. Defaults to resolved when a value is given, else unresolved."
+)
+
+CheckFamily = Annotated[
+    Literal["prompts", "graph", "parameters", "consistency"],
+    BeforeValidator(fold),
+]
+ChangeNote = Annotated[
+    str | None, Field(description="One line saying what changed and why, for the change log.")
+]
+
+
+# ---------------------------------------------------------------------------
 # Matter and standard
 # ---------------------------------------------------------------------------
 
@@ -91,22 +196,48 @@ def _tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
 @mcp.tool()
 @_tool
 def matter_open(
-    name: str,
-    create: bool = True,
-    objective: str | None = None,
-    side: str | None = None,
-    actor: str | None = None,
+    name: Annotated[
+        str | None,
+        Field(description="Matter name. Omit it to list the matters that exist."),
+    ] = None,
+    create: Annotated[
+        bool,
+        Field(
+            description="Create the matter if no matter has this name. Default false, so a typo lists the real matters instead of creating a phantom."
+        ),
+    ] = False,
+    objective: Annotated[
+        str | None, Field(description="One or two sentences on the review objective.")
+    ] = None,
+    side: SideOpt = None,
+    actor: Actor = None,
 ) -> dict[str, Any]:
-    """Open a matter (creating it if needed) and return its full suite-level state.
+    """Open a matter and return its full suite-level state, or list the matters that exist.
 
     Call this first in a session, and again whenever the user asks where things stand.
-    Returns every table with column counts by status, Table Instructions version, last run,
-    staleness counts (never_run / current / direct / transitive), open failures, shared
-    parameters with their resolution status, the memo outline if one is stored, and the
-    effective standard. `side` is 'buy' or 'sell'. With create=false an unknown name
-    returns an error listing the matters that do exist.
+    With no name it returns the list of matters. With a name it returns every table with
+    column counts by status, Table Instructions version, last run, staleness counts
+    (never_run / current / direct / transitive), open failures, shared parameters with
+    their resolution status, the memo outline if one is stored, and the effective standard.
+    An unknown name returns an error listing the matters that do exist; pass create=true to
+    start a new one.
     """
     conn = get_conn()
+    if name is None or not name.strip():
+        matters = service.list_matters(conn)
+        return {
+            "matters": [
+                {
+                    "name": m["name"],
+                    "side": m["side"],
+                    "status": m["status"],
+                    "created_at": m["created_at"],
+                }
+                for m in matters
+            ],
+            "count": len(matters),
+            "findings": [],
+        }
     m, created = service.matter_open(
         conn, name, create=create, objective=objective, side=side, actor=actor
     )
@@ -119,28 +250,53 @@ def matter_open(
 @mcp.tool()
 @_tool
 def standard_set(
-    scope: str,
-    matter: str | None = None,
-    fallback_vocabulary: list[str] | None = None,
-    naming_rules: str | None = None,
-    date_pattern: str | None = None,
-    currency_pattern: str | None = None,
-    default_evidence_boundary: str | None = None,
-    entities: list[EntityRecord] | None = None,
-    objective: str | None = None,
-    conventions: list[str] | None = None,
-    change_note: str | None = None,
-    actor: str | None = None,
+    scope: Scope,
+    matter: Annotated[
+        str | None, Field(description="Matter name; required when scope is 'matter'.")
+    ] = None,
+    fallback_vocabulary: Annotated[
+        list[str] | None,
+        Field(
+            description="The controlled fallback states. Seeded from the skill; changing it is reported."
+        ),
+    ] = None,
+    naming_rules: Annotated[
+        str | None, Field(description="The exact-name rule for entities and individuals.")
+    ] = None,
+    date_pattern: Annotated[
+        str | None, Field(description="Date format every prompt uses, e.g. YYYY-MM-DD.")
+    ] = None,
+    currency_pattern: Annotated[
+        str | None, Field(description="Currency format every prompt uses, e.g. 'USD 1,000.00'.")
+    ] = None,
+    default_evidence_boundary: Annotated[
+        str | None,
+        Field(
+            description="What a column may look at unless it says otherwise, e.g. 'current review unit only'."
+        ),
+    ] = None,
+    entities: Annotated[
+        list[EntityRecord] | None,
+        Field(
+            description="Review-subject entities with exact legal names, and named non-subjects such as the buyer."
+        ),
+    ] = None,
+    objective: Annotated[
+        str | None, Field(description="The matter's review objective, for the overlay.")
+    ] = None,
+    conventions: Annotated[
+        list[str] | None, Field(description="Matter-specific conventions, one sentence each.")
+    ] = None,
+    change_note: ChangeNote = None,
+    actor: Actor = None,
 ) -> dict[str, Any]:
-    """Define or amend the firm baseline (scope='firm') or a matter overlay (scope='matter').
+    """Define or amend the firm baseline or a matter overlay.
 
     Fields you omit carry forward from the previous version. A matter overlay may add the
-    review-subject entities (exact legal names, jurisdictions, roles, and which are NOT
-    subjects), the objective, and matter conventions. It may not contradict the firm
-    baseline's fallback vocabulary, date pattern, currency pattern, or evidence boundary:
-    an attempted contradiction is stored but reported as a STANDARD_CONTRADICTS_FIRM finding
-    and the firm value stays effective. The firm vocabulary is seeded from the skill; changing
-    it is reported as STANDARD_VOCABULARY_NOT_SKILL. Returns the effective merged standard.
+    review-subject entities, the objective, and matter conventions. It may not contradict
+    the firm baseline's fallback vocabulary, date pattern, currency pattern, or evidence
+    boundary: an attempted contradiction is stored but reported as STANDARD_CONTRADICTS_FIRM
+    and the firm value stays effective. Returns the effective merged standard.
     """
     return service.standard_set(
         get_conn(),
@@ -167,29 +323,38 @@ def standard_set(
 @mcp.tool()
 @_tool
 def table_ingest(
-    matter: str,
-    table: str,
-    columns: list[ColumnRecord],
-    table_meta: TableMeta | None = None,
-    table_instructions: str | None = None,
-    source_type: str = "chat",
-    change_note: str | None = None,
-    actor: str | None = None,
+    matter: Matter,
+    table: Table,
+    columns: Annotated[
+        list[ColumnRecord],
+        Field(description="One normalized record per column, in table order."),
+    ],
+    table_meta: Annotated[
+        TableMeta | None,
+        Field(
+            description="What one row is, whether grouping is used, the table's stage and position."
+        ),
+    ] = None,
+    table_instructions: Annotated[
+        str | None,
+        Field(
+            description="The table's Table Instructions text, exactly as entered in Harvey. Exports omit them; pass them whenever you have them."
+        ),
+    ] = None,
+    source_type: SourceType = "chat",
+    change_note: ChangeNote = None,
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Store a review table and its column prompts as normalized records you have extracted.
 
-    Read the Excel/CSV/Harvey export or the pasted prompts yourself and submit one record
-    per column: name, position (1-based), native_type (Classify | Date | Currency | Number |
-    Duration | Verbatim | FreeResponse), prompt_text, configured_options (Classify only, in UI
-    order), and optionally purpose, upstream_refs, status, role, concept, advisory_upstream.
-    Pass the Table Instructions too when you have them; exports omit them and this store is
-    authoritative. source_type is 'chat', 'excel', 'csv', 'harvey_export', or 'drafted'.
-
+    Read the export, workbook, or pasted prompts yourself and submit one record per column.
     Re-ingesting an existing table is safe: columns are matched by name; a changed prompt
     gets a new minor version, an unchanged one is left alone, a new name creates a column,
     and a stored column missing from the submission is reported (COLUMN_ABSENT_FROM_INGEST),
-    never retired silently. A rename must be done with column_revise. Every @Column reference
-    is resolved; unresolved ones are reported. Each stored prompt is linted (see prompt_check).
+    never retired silently. A rename must be done with column_revise. Every @Column
+    reference is resolved; unresolved ones are reported. A record with no usable native
+    type is skipped and reported; the rest of the batch is stored. Each stored prompt is
+    linted (see prompt_check).
     """
     return service.table_ingest(
         get_conn(),
@@ -207,12 +372,14 @@ def table_ingest(
 @mcp.tool()
 @_tool
 def table_instructions_set(
-    matter: str,
-    table: str,
-    text: str,
-    change_note: str | None = None,
-    source_type: str = "chat",
-    actor: str | None = None,
+    matter: Matter,
+    table: Table,
+    text: Annotated[
+        str, Field(description="The full Table Instructions text, exactly as entered in Harvey.")
+    ],
+    change_note: ChangeNote = None,
+    source_type: SourceType = "chat",
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Store a new version of a table's Table Instructions (the corpus-wide shared rules).
 
@@ -228,31 +395,51 @@ def table_instructions_set(
 @mcp.tool()
 @_tool
 def column_revise(
-    matter: str,
-    table: str,
-    column: str,
-    prompt_text: str | None = None,
-    change_note: str | None = None,
-    failure_class_addressed: str | None = None,
-    status: str | None = None,
-    rename_to: str | None = None,
-    purpose: str | None = None,
-    role: str | None = None,
-    concept: str | None = None,
-    native_type: str | None = None,
-    configured_options: list[str] | None = None,
-    bump: str = "minor",
-    actor: str | None = None,
+    matter: Matter,
+    table: Table,
+    column: Column,
+    prompt_text: Annotated[
+        str | None,
+        Field(description="The revised prompt, in full. Unchanged text creates no version."),
+    ] = None,
+    change_note: ChangeNote = None,
+    failure_class_addressed: Annotated[
+        str | None,
+        Field(
+            description="The skill failure class this revision fixes, e.g. scope_leakage or 'Evidence overstatement'."
+        ),
+    ] = None,
+    status: StatusOpt = None,
+    rename_to: Annotated[
+        str | None,
+        Field(
+            description="New column name. The only way to rename; prompts still using the old @name are reported, not rewritten."
+        ),
+    ] = None,
+    purpose: Annotated[
+        str | None,
+        Field(description="One attorney-readable sentence on what the column is for."),
+    ] = None,
+    role: RoleOpt = None,
+    concept: Annotated[
+        str | None,
+        Field(
+            description="Short tag for the legal concept extracted, e.g. 'formation date', for cross-table comparison."
+        ),
+    ] = None,
+    native_type: NativeTypeOpt = None,
+    configured_options: Annotated[
+        list[str] | None, Field(description="Classify only: the configured options in UI order.")
+    ] = None,
+    bump: Bump = "minor",
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Record a revision to one column: a new prompt version, a rename, a status change, or metadata.
 
     Use it after the skill has drafted a revised prompt: pass prompt_text with a change_note
-    and the failure_class_addressed (one of the skill's nineteen classes) so the change log
-    reads like the inventory template. Unchanged text creates no version. bump='major' for a
-    redesign. status is draft | testing | verified | retired; retiring reports every column
-    that still depends on this one. rename_to is the only way to rename: other prompts that
-    still reference the old @name are reported, never rewritten. Downstream columns become
-    stale automatically; call impact_of_change for the rerun scope.
+    and the failure_class_addressed so the change log reads like the inventory template.
+    Retiring a column reports every column that still depends on it. Downstream columns
+    become stale automatically; call impact_of_change for the rerun scope.
     """
     return service.column_revise(
         get_conn(),
@@ -283,15 +470,16 @@ def column_revise(
 @mcp.tool()
 @_tool
 def column_read(
-    matter: str,
-    table: str,
-    column: str,
-    include_history: bool = False,
+    matter: Matter,
+    table: Table,
+    column: Column,
+    include_history: Annotated[
+        bool, Field(description="Also return every prior prompt version and the change log.")
+    ] = False,
 ) -> dict[str, Any]:
     """Read one column in full: current prompt text, type, options, purpose, upstream and
     downstream dependencies (with kind and table), parameters it consumes or sources,
-    staleness with reasons, and evaluation summary. include_history=true adds every prior
-    prompt version with change notes and the change log.
+    staleness with reasons, and evaluation summary.
     """
     return {
         **service.column_read(get_conn(), matter, table, column, include_history),
@@ -302,23 +490,38 @@ def column_read(
 @mcp.tool()
 @_tool
 def columns_find(
-    matter: str,
-    table: str | None = None,
-    native_type: str | None = None,
-    status: str | None = None,
-    failure_class: str | None = None,
-    consumes_parameter: str | None = None,
-    stale: bool | None = None,
-    name_contains: str | None = None,
-    role: str | None = None,
-    concept: str | None = None,
+    matter: Matter,
+    table: Annotated[str | None, Field(description="Limit to one table.")] = None,
+    native_type: NativeTypeOpt = None,
+    status: StatusOpt = None,
+    failure_class: Annotated[
+        str | None,
+        Field(description="Columns with an open failure of this skill failure class."),
+    ] = None,
+    consumes_parameter: Annotated[
+        str | None,
+        Field(
+            description="Columns bound to this shared parameter, directly or through their table's instructions."
+        ),
+    ] = None,
+    stale: Annotated[
+        bool | None,
+        Field(
+            description="true for directly or transitively stale columns only; false for current ones only."
+        ),
+    ] = None,
+    name_contains: Annotated[
+        str | None, Field(description="Case-insensitive substring of the column name.")
+    ] = None,
+    role: RoleOpt = None,
+    concept: Annotated[str | None, Field(description="Exact concept tag.")] = None,
+    limit: Annotated[int, Field(description="Maximum columns to return.", ge=1, le=500)] = 100,
+    offset: Annotated[int, Field(description="Skip this many matches, for paging.", ge=0)] = 0,
 ) -> dict[str, Any]:
     """Find columns across the matter by filter; returns summaries, not prompt text.
 
-    Filters combine: table, native_type, status (draft | testing | verified | retired),
-    failure_class (columns with an open failure of that class), consumes_parameter (bound to
-    that shared parameter, directly or via its table's instructions), stale (true = directly
-    or transitively stale), name_contains, role, concept. Use column_read for the full text.
+    Filters combine. The result carries total and truncated; page with offset when
+    truncated is true. Use column_read for the full text of one column.
     """
     return {
         **service.columns_find(
@@ -333,6 +536,8 @@ def columns_find(
             name_contains,
             role,
             concept,
+            limit=limit,
+            offset=offset,
         ),
         "findings": [],
     }
@@ -346,13 +551,30 @@ def columns_find(
 @mcp.tool()
 @_tool
 def prompt_check(
-    prompt_text: str,
-    native_type: str,
-    configured_options: list[str] | None = None,
-    matter: str | None = None,
-    table: str | None = None,
-    column_name: str | None = None,
-    column_position: int | None = None,
+    prompt_text: Annotated[str, Field(description="The draft prompt, in full.")],
+    native_type: NativeType,
+    configured_options: Annotated[
+        list[str] | None, Field(description="Classify only: the configured options in UI order.")
+    ] = None,
+    matter: Annotated[
+        str | None,
+        Field(
+            description="With table, lets @Column references be resolved against stored columns."
+        ),
+    ] = None,
+    table: Annotated[str | None, Field(description="The table this draft belongs to.")] = None,
+    column_name: Annotated[
+        str | None,
+        Field(
+            description="The column this draft is for, if it exists, so self- and forward references are checked."
+        ),
+    ] = None,
+    column_position: Annotated[
+        int | None,
+        Field(
+            description="1-based position the column will have, for forward-reference checks on a new column."
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """Lint a draft prompt before storing it. Deterministic; no judgment about legal content.
 
@@ -367,9 +589,6 @@ def prompt_check(
     reference).
     """
     conn = get_conn()
-    nt = NATIVE_TYPE_ALIASES.get(native_type.strip().lower(), native_type.strip())
-    if nt not in NATIVE_TYPES:
-        raise PromptGraphError(f"native_type must be one of {', '.join(NATIVE_TYPES)}.")
     cols: list[tuple[str, int]] | None = None
     if matter and table:
         m = service.get_matter(conn, matter)
@@ -385,11 +604,11 @@ def prompt_check(
                 )
             except PromptGraphError:
                 column_position = None
-    ctx = lint.PromptContext(nt, configured_options, column_name, column_position, cols)
+    ctx = lint.PromptContext(native_type, configured_options, column_name, column_position, cols)
     fs = lint.check_prompt(prompt_text, ctx, subject_name=column_name or "draft")
     return {
         "char_count": len(prompt_text),
-        "native_type": nt,
+        "native_type": native_type,
         "references_checked": cols is not None,
         "fallback_terms_used": lint.fallback_terms_used(prompt_text),
         "vocabulary": list(FALLBACK_VOCABULARY),
@@ -400,24 +619,26 @@ def prompt_check(
 @mcp.tool()
 @_tool
 def suite_check(
-    matter: str,
-    checks: list[str] | None = None,
-    table: str | None = None,
+    matter: Matter,
+    checks: Annotated[
+        list[CheckFamily] | None, Field(description="Families to run; all by default.")
+    ] = None,
+    table: Annotated[str | None, Field(description="Limit to one table.")] = None,
 ) -> dict[str, Any]:
     """Check the whole suite for structural and consistency problems. Returns findings only.
 
-    Families (all by default; pass checks=[...] to narrow): 'graph' (dependency cycles,
-    unresolved or forward @Column references, ordering against the skill's staged pattern,
-    a narrative column acting as control plane for several dependents, dependencies on
-    retired columns); 'parameters' (orphaned parameters, unresolved parameters with
-    consumers, a consuming table that never binds the value into its Table Instructions,
-    resolved values absent from the bound text, dangling bindings); 'consistency' (date and
-    currency pattern drift against the standard, an entity printed differently from the
-    matter standard's exact name, the same concept extracted under different names or with
-    different types/options/fallbacks across tables, missing or incomplete Table
-    Instructions); 'prompts' (the prompt_check rules over every stored prompt).
+    Families: 'graph' (dependency cycles, unresolved or forward @Column references, ordering
+    against the skill's staged pattern, a narrative column acting as control plane for
+    several dependents, dependencies on retired columns); 'parameters' (orphaned parameters,
+    unresolved parameters with consumers, a consuming table that never binds the value into
+    its Table Instructions, resolved values absent from the bound text, dangling bindings);
+    'consistency' (date and currency pattern drift against the standard, an entity printed
+    differently from the matter standard's exact name, the same concept extracted under
+    different names or with different types/options/fallbacks across tables, missing or
+    incomplete Table Instructions); 'prompts' (the prompt_check rules over every stored
+    prompt).
     """
-    return checks_mod.suite_check(get_conn(), matter, checks, table)
+    return checks_mod.suite_check(get_conn(), matter, list(checks) if checks else None, table)
 
 
 # ---------------------------------------------------------------------------
@@ -428,11 +649,21 @@ def suite_check(
 @mcp.tool()
 @_tool
 def impact_of_change(
-    matter: str,
-    table: str | None = None,
-    column: str | None = None,
-    parameter: str | None = None,
-    new_value: str | None = None,
+    matter: Matter,
+    table: Annotated[
+        str | None, Field(description="With column: the table of the column that changed.")
+    ] = None,
+    column: Annotated[str | None, Field(description="The column that changed.")] = None,
+    parameter: Annotated[
+        str | None,
+        Field(description="Instead of a column: the shared parameter that changed."),
+    ] = None,
+    new_value: Annotated[
+        str | None,
+        Field(
+            description="The value the parameter is about to take, echoed in the result for the user."
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """Everything downstream of a column or a shared parameter, across tables, in rerun order.
 
@@ -458,7 +689,10 @@ def impact_of_change(
 
 @mcp.tool()
 @_tool
-def staleness_report(matter: str, table: str | None = None) -> dict[str, Any]:
+def staleness_report(
+    matter: Matter,
+    table: Annotated[str | None, Field(description="Limit to one table.")] = None,
+) -> dict[str, Any]:
     """Which columns need a rerun and why, across the matter or for one table.
 
     'direct': the column's own prompt, its table's instructions, or a bound parameter changed
@@ -469,7 +703,11 @@ def staleness_report(matter: str, table: str | None = None) -> dict[str, Any]:
     conn = get_conn()
     m = service.get_matter(conn, matter)
     tid = int(service.get_table(conn, int(m["id"]), table)["id"]) if table else None
-    return {"matter": m["name"], "table": table, **graph.staleness_report(conn, int(m["id"]), tid)}
+    return {
+        "matter": m["name"],
+        "table": table,
+        **graph.staleness_report(conn, int(m["id"]), tid),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -480,25 +718,44 @@ def staleness_report(matter: str, table: str | None = None) -> dict[str, Any]:
 @mcp.tool()
 @_tool
 def parameter_set(
-    matter: str,
-    name: str,
-    value: str | None = None,
-    source_table: str | None = None,
-    source_column: str | None = None,
-    consumers: list[ConsumerBinding] | None = None,
-    replace_consumers: bool = False,
-    status: str | None = None,
-    note: str | None = None,
-    actor: str | None = None,
+    matter: Matter,
+    name: Annotated[str, Field(description="Parameter name, e.g. 'Target Legal Name'.")],
+    value: Annotated[
+        str | None,
+        Field(
+            description="The resolved value, e.g. 'Harbor Logistics Holdings, LLC'. A changed value marks every consumer stale."
+        ),
+    ] = None,
+    source_table: Annotated[
+        str | None, Field(description="Table whose column resolves this value.")
+    ] = None,
+    source_column: Annotated[
+        str | None,
+        Field(
+            description="Column that resolves this value, e.g. the entity table's Principal Entity."
+        ),
+    ] = None,
+    consumers: Annotated[
+        list[ConsumerBinding] | None,
+        Field(
+            description="Tables or columns that use the value, and whether it sits in their Table Instructions or one prompt."
+        ),
+    ] = None,
+    replace_consumers: Annotated[
+        bool, Field(description="Replace the existing bindings instead of adding to them.")
+    ] = False,
+    status: ParamStatusOpt = None,
+    note: Annotated[
+        str | None, Field(description="Free text, e.g. why the value is contested.")
+    ] = None,
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Declare, resolve, or rebind a shared parameter: the cross-table dependency mechanism.
 
-    Example: name='Target Legal Name', value='Harbor Logistics Holdings, LLC',
-    source_table='Entity Register', source_column='Principal Entity', consumers=[{table:
-    'Charter Documents', site: 'table_instructions'}, ...]. Consumers are added to existing
-    bindings unless replace_consumers=true. A changed value marks every consumer stale and
-    is what impact_of_change reads. status: unresolved | resolved | contested (defaults to
-    resolved when a value is given). Reports bindings whose text does not contain the value.
+    Harvey's @Column reference stops at the table boundary; a shared parameter bound to its
+    consumers is the only place a cross-table dependency exists, and it is what
+    impact_of_change and staleness_report read. Reports bindings whose text does not
+    contain the value.
     """
     return parameters.parameter_set(
         get_conn(),
@@ -523,25 +780,39 @@ def parameter_set(
 @mcp.tool()
 @_tool
 def run_record(
-    matter: str,
-    table: str,
-    started_at: str | None = None,
-    note: str | None = None,
-    evaluator: str | None = None,
-    corpus_note: str | None = None,
-    columns: list[str] | None = None,
-    coverage_dimensions: list[str] | None = None,
-    actor: str | None = None,
+    matter: Matter,
+    table: Table,
+    started_at: Annotated[
+        str | None,
+        Field(description="ISO 8601 date or datetime the run started; defaults to now."),
+    ] = None,
+    note: Annotated[
+        str | None,
+        Field(description="What this run was, e.g. 'first full run on the 14-document set'."),
+    ] = None,
+    evaluator: Annotated[str | None, Field(description="Who evaluated the results.")] = None,
+    corpus_note: Annotated[
+        str | None, Field(description="Size, source, and date of the test corpus.")
+    ] = None,
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="Only these columns were rerun (a selective rerun). Default: every active column."
+        ),
+    ] = None,
+    coverage_dimensions: Annotated[
+        list[str] | None,
+        Field(
+            description="Test-set dimensions the corpus covered: document_types, single_multi_subject, execution_states, amendments_compilations, express, silent, incorporated, defective, multiple_records, upstream_fallbacks, multi_hop, conditional, locked_cells, grouped."
+        ),
+    ] = None,
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Record that a table was run in Harvey, snapshotting the prompt version of each column.
 
     Staleness is computed against this snapshot, so record a run before logging results.
-    columns limits the snapshot to a selective rerun. coverage_dimensions ticks the test-set
-    checklist from the skill's evaluation log (keys: document_types, single_multi_subject,
-    execution_states, amendments_compilations, express, silent, incorporated, defective,
-    multiple_records, upstream_fallbacks, multi_hop, conditional, locked_cells, grouped);
-    an unticked dimension is treated as open risk by coverage_check. started_at is ISO 8601
-    and defaults to now.
+    Tick only the coverage dimensions the corpus actually covered; an unticked dimension is
+    treated as open risk by coverage_check.
     """
     return evaluation.run_record(
         get_conn(),
@@ -560,22 +831,29 @@ def run_record(
 @mcp.tool()
 @_tool
 def eval_record(
-    matter: str,
-    table: str,
-    results: list[EvalRecord],
-    run_id: int | None = None,
-    actor: str | None = None,
+    matter: Matter,
+    table: Table,
+    results: Annotated[
+        list[EvalRecord],
+        Field(description="One record per (column, test document); passes as well as failures."),
+    ],
+    run_id: Annotated[
+        int | None,
+        Field(description="The run these results belong to; defaults to the table's latest run."),
+    ] = None,
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Log evaluation results for a run, one record per (column, test document), in batch.
 
-    Fields mirror the skill's evaluation-log-template.csv. Record passes as well as failures.
-    failure_class must be one of the skill's nineteen classes (scope_leakage,
-    concept_conflation, document_type_error, temporal_status_error, evidence_overstatement,
-    holder_direction_error, silence_uncertainty_error, suppressed_value, type_rejection,
-    vocabulary_drift, applicability_error, dependency_routing_error, dead_reference, cascade_error, stale_dependent_error, grouped_source_error,
-    aggregation_error, output_leakage, verbosity); error_type is substantive | evidentiary |
-    formatting. run_id defaults to the table's latest run. A failure stays open until a later
-    result for the same column and document passes.
+    Fields mirror the skill's evaluation-log-template.csv. failure_class is one of the
+    skill's nineteen classes (scope_leakage, concept_conflation, document_type_error,
+    temporal_status_error, evidence_overstatement, holder_direction_error,
+    silence_uncertainty_error, vocabulary_drift, suppressed_value, type_rejection,
+    applicability_error, dependency_routing_error, dead_reference, cascade_error,
+    stale_dependent_error, grouped_source_error, aggregation_error, output_leakage,
+    verbosity); error_type is substantive | evidentiary | formatting. Every record is
+    stored; a problem with one is reported as a finding, never dropped. A failure stays
+    open until a later result for the same column and document passes.
     """
     return evaluation.eval_record(get_conn(), matter, table, results, run_id, actor)
 
@@ -583,7 +861,9 @@ def eval_record(
 @mcp.tool()
 @_tool
 def failures_summary(
-    matter: str, table: str | None = None, group_by: str = "class"
+    matter: Matter,
+    table: Annotated[str | None, Field(description="Limit to one table.")] = None,
+    group_by: GroupBy = "class",
 ) -> dict[str, Any]:
     """Open failures grouped by class, table, or column, to surface systematic problems.
 
@@ -597,15 +877,17 @@ def failures_summary(
 @mcp.tool()
 @_tool
 def run_compare(
-    matter: str,
-    table: str,
-    run_a: int | None = None,
-    run_b: int | None = None,
-    column: str | None = None,
+    matter: Matter,
+    table: Table,
+    run_a: Annotated[
+        int | None,
+        Field(description="The earlier run. Omit both ids to compare the two latest runs."),
+    ] = None,
+    run_b: Annotated[int | None, Field(description="The later run.")] = None,
+    column: Annotated[str | None, Field(description="Limit to one column.")] = None,
 ) -> dict[str, Any]:
     """Compare two runs of a table over the same test documents: fixed, still failing, newly
-    failing (regressions), plus documents present in only one run. Defaults to the two latest
-    runs; run_a is the earlier, run_b the later. Narrow to one column with column=.
+    failing (regressions), plus documents present in only one run.
     """
     return evaluation.run_compare(get_conn(), matter, table, run_a, run_b, column)
 
@@ -618,10 +900,13 @@ def run_compare(
 @mcp.tool()
 @_tool
 def memo_outline_set(
-    matter: str,
-    sections: list[SectionRecord],
-    name: str = "Diligence memo",
-    actor: str | None = None,
+    matter: Matter,
+    sections: Annotated[
+        list[SectionRecord],
+        Field(description="The memo's sections, each with the assertions it must be able to make."),
+    ],
+    name: Annotated[str, Field(description="Name of the deliverable.")] = "Diligence memo",
+    actor: Actor = None,
 ) -> dict[str, Any]:
     """Store the deliverable's outline: sections, and under each the assertions the memo must make.
 
@@ -638,7 +923,7 @@ def memo_outline_set(
 
 @mcp.tool()
 @_tool
-def coverage_check(matter: str) -> dict[str, Any]:
+def coverage_check(matter: Matter) -> dict[str, Any]:
     """The sufficiency test: can the table suite support the memo? Returns a gap report.
 
     Per assertion: reliably_covered (at least one source column has a run, no open failure,
@@ -647,7 +932,8 @@ def coverage_check(matter: str) -> dict[str, Any]:
     stale); extraction_gap (an extraction assertion with no active source column: a schema
     defect); judgment_boundary (an attorney determination: correct behaviour, not a defect).
     Also lists unsourced columns (columns feeding no assertion) and tables with unticked
-    dimensions.
+    dimensions. Before any run every sourced assertion is nominal; say so rather than
+    reading it as failure.
     """
     return coverage.coverage_check(get_conn(), matter)
 

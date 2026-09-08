@@ -20,7 +20,7 @@ from .constants import (
 )
 from .db import now
 from .findings import Finding, PromptGraphError
-from .models import ColumnRecord, EntityRecord, TableMeta
+from .models import ColumnRecord, EntityRecord, TableMeta, fold
 from .refs import referenced_names
 
 # ---------------------------------------------------------------------------
@@ -224,6 +224,7 @@ def standard_set(
     change_note: str | None = None,
     actor: str | None = None,
 ) -> dict[str, Any]:
+    scope = fold(scope)
     if scope not in ("firm", "matter"):
         raise PromptGraphError("scope must be 'firm' or 'matter'.")
     matter_id: int | None = None
@@ -346,13 +347,14 @@ def standard_set(
 def matter_open(
     conn: sqlite3.Connection,
     name: str,
-    create: bool = True,
+    create: bool = False,
     objective: str | None = None,
     side: str | None = None,
     actor: str | None = None,
 ) -> tuple[sqlite3.Row, bool]:
     """Return (matter row, created?)."""
     name = _norm(name)
+    side = fold(side)
     row = conn.execute("SELECT * FROM matter WHERE name=?", (name,)).fetchone()
     if row is not None:
         if objective is not None or side is not None:
@@ -962,6 +964,7 @@ def column_revise(
     findings: list[Finding] = []
     changes: dict[str, Any] = {}
 
+    status, role, bump = fold(status), fold(role), fold(bump) or "minor"
     if status is not None and status not in COLUMN_STATUSES:
         raise PromptGraphError(f"status must be one of {', '.join(COLUMN_STATUSES)}.")
     if role is not None and role not in COLUMN_ROLES:
@@ -1252,11 +1255,14 @@ def columns_find(
     role: str | None = None,
     concept: str | None = None,
     include_retired: bool = False,
+    limit: int = 100,
+    offset: int = 0,
 ) -> dict[str, Any]:
     from . import evaluation, graph
 
     m = get_matter(conn, matter)
     matter_id = int(m["id"])
+    status, role = fold(status), fold(role)
     sql = """SELECT c.* FROM column_def c JOIN review_table rt ON rt.id=c.table_id
              WHERE rt.matter_id=?"""
     args: list[Any] = [matter_id]
@@ -1308,4 +1314,13 @@ def columns_find(
         if failure_class:
             s["open_failures"] = evaluation.column_eval_summary(conn, cid)["open_failures"]
         out.append(s)
-    return {"matter": m["name"], "count": len(out), "columns": out}
+    total = len(out)
+    page = out[offset : offset + limit]
+    return {
+        "matter": m["name"],
+        "count": len(page),
+        "total": total,
+        "offset": offset,
+        "truncated": offset + len(page) < total,
+        "columns": page,
+    }

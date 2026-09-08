@@ -39,6 +39,7 @@ def load_demo(
     m, _created = service.matter_open(
         conn,
         fx["matter"]["name"],
+        create=True,
         objective=fx["matter"].get("objective"),
         side=fx["matter"].get("side"),
         actor="seed",

@@ -109,7 +109,12 @@ def test_reliability_needs_run_no_failures_not_stale_all_dimensions(harbor):
     column_revise(HARBOR, "Real Estate Leases", "Assignment Consent", prompt_text=CLEAN_CLASSIFY)
     res = coverage_check(HARBOR)
     assert statuses(res)[key] == "nominally_covered"  # stale
-    assert any(f["code"] == "COV_SOURCE_STALE" for f in res["findings"])
+    nominal = [
+        f
+        for f in res["findings"]
+        if f["code"] == "COV_NOMINAL_ONLY" and key[:80] in f["subject_name"]
+    ]
+    assert nominal and "Assignment Consent (directly stale" in nominal[0]["observation"]
 
 
 def test_one_reliable_source_is_enough(harbor):
@@ -144,7 +149,7 @@ def test_retired_source_reported(harbor):
 
 
 def test_outline_versioning_and_unresolved_sources(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T", [col("A", 1, CLEAN_FR)])
     r1 = memo_outline_set(
         "M",
@@ -175,7 +180,7 @@ def test_outline_versioning_and_unresolved_sources(conn):
 
 
 def test_invalid_kind_rejected(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     res = memo_outline_set(
         "M", [SectionRecord(name="S", assertions=[AssertionRecord(text="x", kind="maybe")])]
     )
@@ -183,5 +188,5 @@ def test_invalid_kind_rejected(conn):
 
 
 def test_coverage_without_outline_errors(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     assert "No memo outline" in coverage_check("M")["error"]

@@ -246,31 +246,15 @@ def coverage_check(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
                             "assertion",
                             int(a["id"]),
                             a["text"][:80],
-                            f"Every column sourced for the assertion '{a['text'][:80]}' in section '{s['name']}' has an open failure, an unticked test dimension, no run, or is stale.",
-                            {
-                                "section": s["name"],
-                                "sources": [
-                                    {
-                                        "column": f"{x['table']} / {x['column']}",
-                                        "reasons": x["reasons"],
-                                    }
-                                    for x in active
-                                ],
-                            },
+                            f"The assertion '{a['text'][:80]}' in section '{s['name']}' is sourced only from unreliable columns: "
+                            + "; ".join(
+                                f"{x['table']} / {x['column']} ({', '.join(x['reasons'])})"
+                                for x in active
+                            )
+                            + ".",
+                            {"section": s["name"]},
                         )
                     )
-                    for x in active:
-                        if any(r.endswith("stale") for r in x["reasons"]):
-                            findings.append(
-                                Finding(
-                                    "COV_SOURCE_STALE",
-                                    "column",
-                                    None,
-                                    x["column"],
-                                    f"'{x['table']} / {x['column']}' feeds the assertion '{a['text'][:60]}' and is stale.",
-                                    {"section": s["name"]},
-                                )
-                            )
             assertions_out.append(entry)
         sections_out.append({"section": s["name"], "assertions": assertions_out})
 

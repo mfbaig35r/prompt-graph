@@ -59,7 +59,7 @@ def test_table_filter(harbor):
 
 
 def test_graph_cycle_reported(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T",
@@ -76,7 +76,7 @@ def test_graph_cycle_reported(conn):
 
 
 def test_role_order_violation(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T",
@@ -93,7 +93,7 @@ def test_role_order_violation(conn):
 
 
 def test_control_plane_narrative(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T",
@@ -109,7 +109,7 @@ def test_control_plane_narrative(conn):
 
 
 def test_control_plane_not_flagged_for_classify(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T",
@@ -124,7 +124,7 @@ def test_control_plane_not_flagged_for_classify(conn):
 
 
 def test_dependency_on_retired(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T",
@@ -142,7 +142,7 @@ def test_dependency_on_retired(conn):
 
 
 def test_orphaned_and_unresolved_parameters(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T", [col("A", 1, CLEAN_FR)], table_instructions=INSTR)
     parameter_set("M", "Orphan", "x")
     parameter_set("M", "Pending", consumers=[ConsumerBinding(table="T", site="table_instructions")])
@@ -152,7 +152,7 @@ def test_orphaned_and_unresolved_parameters(conn):
 
 
 def test_parameter_not_bound_to_instructions_and_value_absent(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T", [col("A", 1, CLEAN_FR)], table_instructions=INSTR)
     parameter_set(
         "M",
@@ -174,7 +174,7 @@ def test_parameter_not_bound_to_instructions_and_value_absent(conn):
 
 
 def test_dangling_binding_and_retired_source(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T1", [col("Src", 1, CLEAN_FR)], table_instructions=INSTR)
     table_ingest(
         "M",
@@ -211,7 +211,7 @@ def test_entity_variants_helper():
 
 
 def test_instructions_missing_and_vocabulary_incomplete(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T1", [col("A", 1, CLEAN_FR)])
     table_ingest(
         "M",
@@ -231,7 +231,7 @@ def test_instructions_missing_and_vocabulary_incomplete(conn):
 
 
 def test_same_name_divergent_rules_across_tables(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest(
         "M",
         "T1",
@@ -252,7 +252,7 @@ def test_same_name_divergent_rules_across_tables(conn):
 
 
 def test_similar_names_heuristic(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     table_ingest("M", "T1", [col("Formation Date", 1, CLEAN_FR, "Date")], table_instructions=INSTR)
     table_ingest(
         "M", "T2", [col("Entity Formation Date", 1, CLEAN_FR, "Date")], table_instructions=INSTR
@@ -262,7 +262,7 @@ def test_similar_names_heuristic(conn):
 
 
 def test_date_pattern_without_standard_flags_multiple(conn):
-    matter_open("M")
+    matter_open("M", create=True)
     standard_set("firm", date_pattern="")  # clear the seeded pattern
     table_ingest(
         "M", "T1", [col("A", 1, "`YYYY-MM-DD`\n" + CLEAN_FR, "Date")], table_instructions=INSTR
