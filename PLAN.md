@@ -4,7 +4,7 @@ Written before implementation, from `requirements/prompt-graph-mcp-requirements.
 `legal-review-table-builder` skill (v1). Choices the requirements leave open are recorded in
 `DECISIONS.md`; this file is the shape of what gets built.
 
-## 1. Tool surface: 21 tools consolidated to 18
+## 1. Tool surface: 21 working names consolidated to 18, then 21 with Addendum A
 
 The requirements list 21 working names. Six of them are fragments of the same user task, so
 they are folded into the verb the user actually says. Nothing is dropped; every capability in
@@ -30,6 +30,9 @@ they are folded into the verb the user actually says. Nothing is dropped; every 
 | 16 | `run_compare` | P2 | — | "Did v1.2 fix the notary problem without breaking anything?" |
 | 17 | `memo_outline_set` | P3 | — | "Here is the memo outline and what each section has to say." |
 | 18 | `coverage_check` | P3 | — | "Can the suite support the memo?" |
+| 19 | `freshness_check` | A.1 | `document_set_refresh`, `freshness_report` | "Has the data room grown since we ran the leases table?" One tool: compares by default, observes with `refresh=true` (Harvey Vault API or a manual count). |
+| 20 | `table_readiness` | A.4 | — | "Is the charter table ready to run against the real vault?" Composes every check for one table, grouped by cause, no verdict. |
+| 21 | `matter_export` | A.3 | — | "Give me a record of everything we reviewed and when." One versioned JSON document. |
 
 Names: tools take `matter`, `table`, `column`, `parameter` by **name** (case-insensitive,
 whitespace-normalized). Internal ids are returned but never required.
@@ -63,7 +66,8 @@ shared_parameter    id, matter_id, name, value, source_column_id, source_table_i
                     UNIQUE(matter_id,name)
 parameter_binding   id, parameter_id, consuming_table_id, consuming_column_id,
                     binding_site('table_instructions'|'column_prompt')
-run                 id, table_id, started_at, note, evaluator, corpus_note
+run                 id, table_id, started_at, note, evaluator, corpus_note,
+                    document_set_snapshot_id (v2)
 run_snapshot        run_id, column_id, prompt_version_id, instructions_version_id
 run_coverage        run_id, dimension_key           (ticked test-set dimensions)
 coverage_dimension  key, label, position, requires_grouping   (seeded, 14 rows)
@@ -75,6 +79,13 @@ memo_section        id, outline_id, name, position
 memo_assertion      id, section_id, text, position, kind('extraction'|'judgment'), note
 assertion_source    id, assertion_id, column_id, note
 provenance          id, entity_type, entity_id, action, source_type, actor, at, detail(json)
+
+-- schema v2 (Addendum A.1)
+matter              + vault_project_id
+review_table        + vault_project_id            (overrides the matter's)
+document_set_snapshot  id, matter_id, vault_project_id, observed_at, ready_count,
+                    latest_uploaded_at, set_hash, file_ids(json), source('harvey_api'|'manual'),
+                    note, created_at
 ```
 
 Versioning: `v{major}.{minor}`. Ingest assigns `v1.0`; `column_revise` increments minor
@@ -87,6 +98,13 @@ column's prompt changes. `cross_table_parameter` edges are rebuilt from bindings
 `parameter_set` runs (source column → each consuming column; table-level bindings fan out to
 every active column in the consuming table). `advisory` edges are declared by the user on a
 column record and only ever touched explicitly.
+
+Freshness (v2): a run links the latest document-set snapshot for its table's vault project,
+or records a manual one from `documents_ready`. Per table the state is `unobserved` (no
+snapshot), `never_run`, `unrecorded` (the run has none), `current`, or `moved` (count,
+latest upload, or file-id set differs). Reverse coverage: `impact_of_change`,
+`staleness_report`, and `freshness_check` end with the memo assertions whose sources are
+affected (`unsupported` when all active sources are, `weakened` when some are).
 
 ## 3. The three areas that need care
 
@@ -159,7 +177,11 @@ src/prompt_graph/
   graph.py         dependency graph, impact, cycles, staleness
   checks.py        suite_check (graph + consistency)
   evaluation.py    runs, eval results, failures, compare
-  coverage.py      memo outline + coverage
+  coverage.py      memo outline + coverage + reverse coverage (column -> assertions)
+  freshness.py     document-set snapshots, freshness map and findings
+  harvey.py        Vault API client (stdlib, injectable fetcher, 5-minute cache)
+  readiness.py     table_readiness composition
+  export.py        matter_export
   seed.py          demo matter fixture (Project Harbor, 4 tables)
-tests/             one file per area + validation rules + idempotency + cycles
+tests/             one file per area + validation rules + idempotency + cycles + addendum
 ```

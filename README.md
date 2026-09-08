@@ -4,7 +4,7 @@ An MCP server that stores, versions, validates, and computes over the Harvey rev
 prompts of an M&A diligence matter. It is the state-and-determinism companion to the
 `legal-review-table-builder` skill: the skill drafts and revises prompts, Claude reads
 exports and interprets results, and this server holds the inventory, the cross-table
-dependency graph, staleness, evaluation history, and memo coverage.
+dependency graph, staleness, document-set freshness, evaluation history, and memo coverage.
 
 The server never drafts prompt text, never parses files, and never makes a legal
 determination. Every tool returns findings (factual observations with a stable code) for
@@ -47,6 +47,9 @@ The database holds client-confidential material (prompts, Table Instructions, en
 names, matter objectives). Treat the file like a matter file: restrict who can read the
 directory, back it up with the firm's normal process, and keep the `-wal` and `-shm`
 sidecar files with it (they are part of the database while the server is running).
+
+`matter_export` writes its JSON records to an `exports` folder beside the database unless
+told otherwise; those files are client data too.
 
 ### Claude Desktop
 

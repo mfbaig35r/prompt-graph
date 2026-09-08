@@ -132,6 +132,32 @@ Then `eval_record` takes the results in one batch, passes as well as failures, i
 
 Two runs later, you say: *"Did v1.2 fix the notary problem without breaking anything?"* and `run_compare` tells you: fixed, still failing, newly failing. That third bucket is regression detection. Harvey does not have it. Now you do.
 
+One more thing to record with a run, and it is the one most people skip: how many documents were in the vault when you ran. Say *"there were 400 documents in the vault"* and `run_record` stores that beside the prompt versions. It matters in the next step but one.
+
+## Step 7a: Before the real run, ask if the table is ready
+
+Testing happens on fourteen documents. The real run happens on four hundred, against client data, with an attorney waiting on the result. Before that, you say: *"Is the entity register ready to run?"*
+
+`table_readiness` is one call that composes everything above for one table: the lint on every column, the graph and consistency checks scoped to that table, shared parameters it consumes that nobody has resolved, columns still in draft, columns that are stale or have never run, open failures from the last results, test-set dimensions nobody ticked, and whether the document set has moved. Findings come back grouped by cause with a count per group.
+
+What it does not return is a verdict. There is no "ready: true". Readiness against a live client matter is a judgment, and the tool's job is to make sure nothing was missed, not to make the call. This is also the tool a paralegal can be told to run without knowing any of the others exist, which is the actual usability bar.
+
+If you have used dbt's CI gate, this is that, minus the part where it decides for you.
+
+## Step 7b: The failure nobody sees
+
+Here is a scenario that every check above says is fine.
+
+A column is verified. Its prompt has not changed since its last run. Every evaluation passed. The suite check is clean. And the answer is wrong, because the vault had 400 documents when the column ran and has 447 now, and the 47 new ones include the amended operating agreement.
+
+Nothing in a prompt-versioning system can see this, because nothing changed on the prompt side. In dbt this is the source freshness problem: the model is fine, the upstream table moved. In diligence it is worse than a missing answer, because the system is reporting confidence it has not earned.
+
+So you say: *"Has the data room grown since we ran the leases table?"*
+
+`freshness_check` compares what each table last ran against with what the vault holds now. If the firm has a Harvey API key, the server asks Harvey directly, counting only documents that are actually ready to query and skipping deleted ones, and it remembers the answer for five minutes because Harvey allows ten of those requests a minute for the whole organisation. If there is no key, you tell it the count and the finding says the number came from you. Either way the finding is a fact, not a severity: *the lease table last ran against 400 ready documents; 47 have been added and 2 removed since.* Whether those 47 matter depends on what they are, and that is the attorney's call.
+
+Two things this deliberately does not do. It does not fold into staleness, because the causes and the remedies are different: a stale column needs its prompt rerun, a column on a moved document set needs the new documents reviewed. And it does not stop at the table. The report ends with the memo assertions those columns support, which is the next idea.
+
 ## Step 8: Ask the only question that matters
 
 Everything above is about whether the columns are *correct*. This step is about whether they are *sufficient*, and I want to be clear that these are different questions. Every column can pass and the memo can still be undraftable.
@@ -154,6 +180,16 @@ I cannot stress the last distinction enough, because collapsing it is how you en
 The report also lists every column that feeds no assertion at all. On the demo matter that is eight of eighteen. Either the outline is incomplete or those columns do not need to exist, and either way it is worth knowing before you run 360 prompts across a data room.
 
 If you have used dbt exposures, this is that, with the sufficiency test the exposures feature never quite got around to.
+
+And it runs backward, which is the part of exposures that actually pays. When a column goes stale, or fails, or ran against a document set that has since moved, the impact, staleness, and freshness reports all end with the memo assertions that column supports, marked *unsupported* when every source is affected and *weakened* when some are. "Changing Execution Status makes two columns stale" is infrastructure state. "The transfer-restrictions paragraph is unsupported until you rerun them" is what the attorney asked. At six in the evening, that is the sentence they want.
+
+## Step 9: Keep the record
+
+At closing, on handoff to another team, when an associate leaves, or eighteen months later when someone asks what exactly was reviewed and when, you say: *"Export the matter."*
+
+`matter_export` writes one JSON document: the standard in effect, every table and its Table Instructions by version, every column with its full prompt history, the dependency graph, the shared parameters and where they were bound, every run with the prompt versions and the document set it ran against, every evaluation result, the memo outline with its coverage state, and the provenance log of who did what and when. The format carries a version number so old exports stay readable after the schema moves.
+
+dbt writes something similar after every run and calls it a manifest, and it is useful there for tooling. Here it is useful for a reason analytics never has: this is a record of how the diligence was conducted. It is also the disaster-recovery story if the database file is lost.
 
 ## What this does not do
 
