@@ -19,7 +19,7 @@ from pydantic import BeforeValidator, Field
 
 from . import checks as checks_mod
 from . import coverage, db, evaluation, graph, lint, overview, parameters, service
-from .constants import FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
+from .constants import COVERAGE_DIMENSION_KEYS, FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
 from .findings import Finding, PromptGraphError, dump
 from .models import (
     ColumnRecord,
@@ -182,6 +182,12 @@ ParamStatusOpt = _optional(
 CheckFamily = Annotated[
     Literal["prompts", "graph", "parameters", "consistency"],
     BeforeValidator(fold),
+]
+CoverageDimension = Annotated[
+    Literal[*COVERAGE_DIMENSION_KEYS],  # type: ignore[valid-type]
+    BeforeValidator(
+        lambda v: fold(v).replace("-", "_").replace(" ", "_") if isinstance(v, str) else v
+    ),
 ]
 ChangeNote = Annotated[
     str | None, Field(description="One line saying what changed and why, for the change log.")
@@ -801,9 +807,9 @@ def run_record(
         ),
     ] = None,
     coverage_dimensions: Annotated[
-        list[str] | None,
+        list[CoverageDimension] | None,
         Field(
-            description="Test-set dimensions the corpus covered: document_types, single_multi_subject, execution_states, amendments_compilations, express, silent, incorporated, defective, multiple_records, upstream_fallbacks, multi_hop, conditional, locked_cells, grouped."
+            description="Test-set dimensions from the skill's evaluation log that the corpus covered. Tick only what was actually tested."
         ),
     ] = None,
     actor: Actor = None,
@@ -846,14 +852,11 @@ def eval_record(
     """Log evaluation results for a run, one record per (column, test document), in batch.
 
     Fields mirror the skill's evaluation-log-template.csv. failure_class is one of the
-    skill's nineteen classes (scope_leakage, concept_conflation, document_type_error,
-    temporal_status_error, evidence_overstatement, holder_direction_error,
-    silence_uncertainty_error, vocabulary_drift, suppressed_value, type_rejection,
-    applicability_error, dependency_routing_error, dead_reference, cascade_error,
-    stale_dependent_error, grouped_source_error, aggregation_error, output_leakage,
-    verbosity); error_type is substantive | evidentiary | formatting. Every record is
-    stored; a problem with one is reported as a finding, never dropped. A failure stays
-    open until a later result for the same column and document passes.
+    skill's failure classes in snake_case (e.g. scope_leakage; the label spelling
+    'Scope leakage' is also accepted); error_type is substantive | evidentiary |
+    formatting. Every record is stored; a problem with one is reported as a finding that
+    lists the accepted values, never dropped. A failure stays open until a later result for
+    the same column and document passes.
     """
     return evaluation.eval_record(get_conn(), matter, table, results, run_id, actor)
 

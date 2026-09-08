@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 from prompt_graph.server import (
     column_revise,
@@ -158,3 +159,22 @@ def test_run_record_reports_the_persisted_timestamp(harbor):
     assert r["started_at"] == stored
     r2 = run_record(HARBOR, "Entity Register", started_at="2026-08-26T10:00:00+00:00")
     assert r2["started_at"] == "2026-08-26T10:00:00+00:00"
+
+
+def test_coverage_dimensions_are_an_enum_and_fold(harbor):
+    prop = _props("run_record")["coverage_dimensions"]
+    assert "enum" in json.dumps(prop) and "document_types" in json.dumps(prop)
+    r = call(
+        "run_record",
+        matter=HARBOR,
+        table="Entity Register",
+        coverage_dimensions=["Document Types", "silent"],
+    )
+    assert r["coverage_dimensions"] == ["document_types", "silent"]
+    with pytest.raises(ToolError, match="document_types"):
+        call("run_record", matter=HARBOR, table="Entity Register", coverage_dimensions=["nonsense"])
+
+
+def test_eval_record_docstring_does_not_repeat_the_taxonomy():
+    desc = TOOLS["eval_record"].description
+    assert "scope_leakage" in desc and "concept_conflation" not in desc
