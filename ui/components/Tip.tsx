@@ -21,8 +21,14 @@ export function Term({
   const show = useCallback(() => {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
+    // The UI is scaled with CSS `zoom`. getBoundingClientRect reports post-zoom (visual)
+    // coordinates, but a fixed child inside the zoomed subtree has its own left/top multiplied
+    // by that same factor, so the raw values land the tooltip short of its term. Divide back out.
+    const z =
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ui-scale")) || 1;
     const above = r.top > 190;
-    setBox({ x: Math.min(Math.max(r.left + r.width / 2, 150), window.innerWidth - 150), y: above ? r.top - 8 : r.bottom + 8, above });
+    const cx = Math.min(Math.max(r.left + r.width / 2, 150), window.innerWidth - 150);
+    setBox({ x: cx / z, y: (above ? r.top - 8 : r.bottom + 8) / z, above });
   }, []);
 
   if (!entry) return <>{children}</>;

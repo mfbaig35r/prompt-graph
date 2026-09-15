@@ -58,6 +58,12 @@
 
 html, body { background: var(--bg); }
 
+/* Everything is sized in px, so one scale on the root shrinks the whole interface
+   proportionally: type, spacing, borders and the graph together. A token rather than a
+   literal so it is one place to change. */
+:root { --ui-scale: 0.85; }
+body { zoom: var(--ui-scale); }
+
 body {
   color: var(--text);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
