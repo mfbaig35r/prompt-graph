@@ -209,6 +209,15 @@ def concepts(matter: str) -> dict[str, Any]:
             for f in res["findings"]
             if f.code not in ("CONCEPT_DIVERGENT_RULES", "CONCEPT_NAME_VARIANT")
         ]
+
+        # Tagging progress: the heuristic exists only because concepts are untagged, so how much
+        # of the matter carries a concept measures how much of this page is still guesswork.
+        tagged, total = c.execute(
+            """SELECT COUNT(c.concept), COUNT(*) FROM column_def c
+               JOIN review_table rt ON rt.id = c.table_id
+               WHERE rt.matter_id = ? AND c.retired_at IS NULL""",
+            (int(m["id"]),),
+        ).fetchone()
         return {
             "matter": m["name"],
             "divergent": divergent,
@@ -219,6 +228,8 @@ def concepts(matter: str) -> dict[str, Any]:
                 "name_variants": len(variants),
                 "name_variants_strong": sum(1 for v in variants if v["confidence"] == "strong"),
                 "other": len(other),
+                "tagged_columns": tagged,
+                "total_columns": total,
             },
         }
 

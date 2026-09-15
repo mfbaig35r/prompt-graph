@@ -68,7 +68,7 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 }
 ```
 
-Restart Claude Desktop. The server appears as "prompt-graph" with 21 tools.
+Restart Claude Desktop. The server appears as "prompt-graph" with 22 tools.
 
 ### Claude Code
 
@@ -198,6 +198,7 @@ names; Claude calls them from natural-language requests.
 | `column_revise` | "Store this as v1.1 of Execution Status" / "Rename…" / "Retire…" |
 | `column_read` | "Show me the Signatories prompt and its history" |
 | `columns_find` | "Which Classify columns are still in draft?" |
+| `concept_set` | "These are all the same concept" / "No, those two are different things" |
 | `prompt_check` | "Check this draft before I store it" |
 | `suite_check` | "Is anything wrong with the suite?" |
 | `impact_of_change` | "If the entity name column changes, what do I rerun?" |
@@ -240,7 +241,7 @@ the skill is checked out beside the code and they run.
 
 ```
 src/prompt_graph/
-  server.py      the 21 MCP tools (docstrings written for the model)
+  server.py      the 22 MCP tools (docstrings written for the model)
   db.py          SQLite connection, WAL, versioned migrations
   constants.py   vocabulary, taxonomy, coverage dimensions, copied from the skill
   lint.py        prompt_check rules

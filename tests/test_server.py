@@ -17,6 +17,7 @@ EXPECTED_TOOLS = {
     "column_revise",
     "column_read",
     "columns_find",
+    "concept_set",
     "prompt_check",
     "suite_check",
     "impact_of_change",

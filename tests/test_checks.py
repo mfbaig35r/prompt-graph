@@ -6,6 +6,7 @@ from prompt_graph.checks import entity_variants
 from prompt_graph.models import ConsumerBinding, EntityRecord, TableMeta
 from prompt_graph.server import (
     column_revise,
+    concept_set,
     matter_open,
     parameter_set,
     standard_set,
@@ -397,3 +398,83 @@ def test_transitive_membership_is_flagged(conn):
     assert len(f["evidence"]["names"]) == 3
     assert f["evidence"]["confidence"] == "possible"
     assert any("transitively" in r for r in f["evidence"]["confidence_reasons"])
+
+
+# --- concept_set: accepting and dismissing a cluster ------------------------------------------
+
+
+def test_tagging_a_cluster_moves_it_from_guess_to_fact(conn):
+    """Tagging does not silence the finding. It moves it out of the name-similarity heuristic
+    and into the explicit path, where the divergence is reported as fact."""
+    v = _seed(
+        [
+            ("A", "Documents in Unit", "orientation"),
+            ("B", "Documents in Unit", "orientation"),
+            ("C", "Governing Documents in Unit", "orientation"),
+        ]
+    )
+    assert v[0]["evidence"].get("concept") is None  # inferred
+
+    r = concept_set(
+        HARBOR,
+        concept="documents in unit",
+        names=["Documents in Unit", "Governing Documents in Unit"],
+    )
+    assert r["count"] == 3
+
+    (f,) = by_code(suite_check(HARBOR))["CONCEPT_NAME_VARIANT"]
+    assert f["evidence"]["concept"] == "documents in unit"  # confirmed
+    assert "heuristic" not in f["evidence"]
+
+
+def test_separate_concepts_dismiss_a_false_positive(conn):
+    """Two questions that merely look alike are dismissed by giving each its own concept:
+    both leave the heuristic and neither groups with the other."""
+    assert _seed(
+        [
+            ("A", "Post-Termination Exercise Period", "extraction"),
+            ("B", "Default Post-Termination Exercise", "extraction"),
+        ]
+    )
+    concept_set(HARBOR, concept="exercise, instrument", names=["Post-Termination Exercise Period"])
+    concept_set(
+        HARBOR, concept="exercise, plan default", names=["Default Post-Termination Exercise"]
+    )
+    assert "CONCEPT_NAME_VARIANT" not in by_code(suite_check(HARBOR))
+
+
+def test_concept_set_reports_names_it_could_not_find(conn):
+    _seed(
+        [
+            ("A", "Governing Law", "orientation"),
+            ("B", "Jurisdiction and Governing Law", "orientation"),
+        ]
+    )
+    r = concept_set(HARBOR, concept="governing law", names=["Governing Law", "Nope"])
+    assert r["unknown"] == ["Nope"] and r["count"] == 1
+
+
+def test_concept_set_needs_a_target(conn):
+    _seed(
+        [
+            ("A", "Governing Law", "orientation"),
+            ("B", "Jurisdiction and Governing Law", "orientation"),
+        ]
+    )
+    assert "No columns matched" in concept_set(HARBOR, concept="x")["error"]
+
+
+def test_clearing_a_tag_returns_it_to_the_heuristic(conn):
+    _seed(
+        [
+            ("A", "Governing Law", "orientation"),
+            ("B", "Jurisdiction and Governing Law", "orientation"),
+        ]
+    )
+    concept_set(
+        HARBOR, concept="governing law", names=["Governing Law", "Jurisdiction and Governing Law"]
+    )
+    assert by_code(suite_check(HARBOR))["CONCEPT_NAME_VARIANT"][0]["evidence"]["concept"]
+    concept_set(HARBOR, concept=None, names=["Governing Law", "Jurisdiction and Governing Law"])
+    f = by_code(suite_check(HARBOR))["CONCEPT_NAME_VARIANT"][0]
+    assert f["evidence"].get("concept") is None and f["evidence"]["heuristic"] == "token overlap"

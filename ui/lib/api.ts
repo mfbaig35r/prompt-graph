@@ -171,7 +171,14 @@ export type Concepts = {
   divergent: Divergence[];
   name_variants: NameVariant[];
   other: Finding[];
-  counts: { divergent: number; name_variants: number; name_variants_strong: number; other: number };
+  counts: {
+    divergent: number;
+    name_variants: number;
+    name_variants_strong: number;
+    other: number;
+    tagged_columns: number;
+    total_columns: number;
+  };
 };
 
 export const getConcepts = (m: string) =>

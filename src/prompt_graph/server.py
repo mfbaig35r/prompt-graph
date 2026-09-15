@@ -15,7 +15,7 @@ from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import BeforeValidator, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from . import checks as checks_mod
 from . import (
@@ -108,6 +108,11 @@ def _tool(fn: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
 
 def _native(v: Any) -> Any:
     return NATIVE_TYPE_ALIASES.get(v.strip().lower(), v.strip()) if isinstance(v, str) else v
+
+
+class ConceptTarget(BaseModel):
+    table: str
+    column: str
 
 
 Matter = Annotated[str, Field(description="Matter name, as the user says it (case-insensitive).")]
@@ -576,6 +581,50 @@ def columns_find(
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+@_tool
+def concept_set(
+    matter: Matter,
+    concept: Annotated[
+        str | None,
+        Field(
+            description="The shared concept, e.g. 'documents in unit'. Pass null to clear the tag."
+        ),
+    ] = None,
+    names: Annotated[
+        list[str] | None,
+        Field(
+            description="Tag every active column with these names, across every table. This is "
+            "how a reported cluster of similar names is accepted in one call."
+        ),
+    ] = None,
+    columns: Annotated[
+        list[ConceptTarget] | None,
+        Field(description="Specific columns, when only some of a cluster belongs together."),
+    ] = None,
+    actor: Actor = None,
+) -> dict[str, Any]:
+    """Tag columns with a shared concept, so cross-table comparison is a fact rather than a guess.
+
+    Consistency reports similar column names by token overlap because nothing says whether they
+    are the same concept. This records the answer. Once tagged, a cluster leaves the heuristic
+    and enters the explicit path, where divergent names, types or fallback states are still
+    reported, now confirmed rather than inferred. Tagging confirms a finding; renaming the
+    columns is what resolves it.
+
+    To dismiss a false positive, give each side its own concept: both leave the heuristic and
+    neither groups with the other. Say what you tagged and why, and run suite_check after.
+    """
+    return service.concept_set(
+        get_conn(),
+        matter,
+        concept,
+        names,
+        [c.model_dump() for c in columns] if columns else None,
+        actor,
+    )
 
 
 @mcp.tool()

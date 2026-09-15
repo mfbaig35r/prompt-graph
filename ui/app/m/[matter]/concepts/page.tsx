@@ -44,6 +44,13 @@ export default function ConceptsPage() {
         crumbs={[{ label: matter, href: base }, { label: "Consistency" }]}
         title="Cross-module consistency"
         description="Where the same legal concept is handled differently in different modules. Every row below is a place a reviewer could get two different answers to the same question depending on which module ran."
+        right={
+          <span className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
+            {d.counts.tagged_columns === 0
+              ? `no concepts tagged yet · all ${d.counts.total_columns} rules matched by name`
+              : `${d.counts.tagged_columns} of ${d.counts.total_columns} rules tagged`}
+          </span>
+        }
       />
 
       <div className="mb-9 grid grid-cols-2 gap-4 sm:grid-cols-4">

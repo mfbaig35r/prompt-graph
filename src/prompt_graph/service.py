@@ -1246,6 +1246,85 @@ def column_read(
     return out
 
 
+def concept_set(
+    conn: sqlite3.Connection,
+    matter: str,
+    concept: str | None,
+    names: list[str] | None = None,
+    columns: list[dict[str, str]] | None = None,
+    actor: str | None = None,
+) -> dict[str, Any]:
+    """Tag columns with a shared concept, in bulk.
+
+    `names` tags every active column with those names across the whole matter, which is how a
+    reported cluster is accepted in one call. `columns` takes explicit {table, column} pairs
+    when only some of a cluster belongs together.
+
+    Tagging does not silence a finding, it confirms it. Once tagged, the pair leaves the
+    name-similarity heuristic and enters the explicit path, where a genuine difference in names,
+    types or fallback states is still reported, now as fact rather than inference. Renaming the
+    columns is what resolves it.
+
+    To dismiss a false positive, give each side its own concept. Both leave the heuristic and
+    neither groups with the other.
+    """
+    m = get_matter(conn, matter)
+    matter_id = int(m["id"])
+    tag = (concept or "").strip() or None
+
+    targets: list[sqlite3.Row] = []
+    unknown: list[str] = []
+    if names:
+        for n in names:
+            rows = conn.execute(
+                """SELECT c.id, c.name, rt.name AS table_name FROM column_def c
+                   JOIN review_table rt ON rt.id = c.table_id
+                   WHERE rt.matter_id = ? AND lower(c.name) = lower(?) AND c.retired_at IS NULL""",
+                (matter_id, _norm(n)),
+            ).fetchall()
+            if not rows:
+                unknown.append(n)
+            targets.extend(rows)
+    for ref in columns or []:
+        t = get_table(conn, matter_id, ref["table"])
+        try:
+            c = get_column(conn, int(t["id"]), ref["column"])
+        except PromptGraphError:
+            unknown.append(f"{ref['table']} / {ref['column']}")
+            continue
+        targets.append(
+            conn.execute(
+                """SELECT c.id, c.name, rt.name AS table_name FROM column_def c
+                   JOIN review_table rt ON rt.id = c.table_id WHERE c.id = ?""",
+                (int(c["id"]),),
+            ).fetchone()
+        )
+    if not targets:
+        raise PromptGraphError(
+            "No columns matched. Pass `names` (every column with that name) or `columns` "
+            "([{table, column}])."
+        )
+
+    seen: set[int] = set()
+    changed: list[str] = []
+    for row in targets:
+        cid = int(row["id"])
+        if cid in seen:
+            continue
+        seen.add(cid)
+        conn.execute("UPDATE column_def SET concept=? WHERE id=?", (tag, cid))
+        changed.append(f"{row['table_name']} / {row['name']}")
+        _provenance(conn, "column", cid, "concept", "chat", actor, {"concept": tag})
+    return {
+        "matter": m["name"],
+        "concept": tag,
+        "tagged": sorted(changed),
+        "count": len(changed),
+        "unknown": unknown,
+        "findings": [],
+    }
+
+
 def columns_find(
     conn: sqlite3.Connection,
     matter: str,
