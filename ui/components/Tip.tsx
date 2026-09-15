@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { lookup } from "@/lib/glossary";
 
 /** Fixed-position tooltip. Rendered against the viewport rather than inside the flow, because
@@ -17,6 +17,20 @@ export function Term({
   const entry = lookup(k);
   const ref = useRef<HTMLSpanElement>(null);
   const [box, setBox] = useState<{ x: number; y: number; above: boolean } | null>(null);
+
+  const hide = useCallback(() => setBox(null), []);
+
+  // Coordinates are captured once, so any scroll or resize strands the tooltip away from the
+  // term it belongs to. Capture phase, because the page has inner scrollers too.
+  useEffect(() => {
+    if (!box) return;
+    window.addEventListener("scroll", hide, true);
+    window.addEventListener("resize", hide);
+    return () => {
+      window.removeEventListener("scroll", hide, true);
+      window.removeEventListener("resize", hide);
+    };
+  }, [box, hide]);
 
   const show = useCallback(() => {
     const r = ref.current?.getBoundingClientRect();
@@ -39,9 +53,9 @@ export function Term({
         ref={ref}
         tabIndex={0}
         onMouseEnter={show}
-        onMouseLeave={() => setBox(null)}
+        onMouseLeave={hide}
         onFocus={show}
-        onBlur={() => setBox(null)}
+        onBlur={hide}
         className="cursor-help outline-none"
         style={
           underline
@@ -59,8 +73,11 @@ export function Term({
             left: box.x,
             top: box.y,
             transform: `translate(-50%, ${box.above ? "-100%" : "0"})`,
-            // never inherit: these terms are often nested inside .mono code spans
+            // Never inherit: these terms sit inside .mono code spans and inside .eyebrow,
+            // which uppercases and letter-spaces. The `font` shorthand covers neither of those.
             font: '400 12px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif',
+            textTransform: "none",
+            letterSpacing: "normal",
             background: "var(--surface)",
             borderColor: "var(--border-2)",
             color: "var(--text-2)",
