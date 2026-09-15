@@ -19,12 +19,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const activeTable = decodeURIComponent(path.split("/")[4] ?? "");
 
   // localStorage does not exist during SSR, so persisted UI preferences can only be read after
-  // mount. The inline script in layout.tsx has already applied the theme attribute by now; this
-  // only syncs React's copy so the toggle renders the right icon.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // mount, and the rule's suggested alternative (subscribe to an external store) does not apply
+  // to a one-shot read. The inline script in layout.tsx has already applied the theme attribute
+  // by now; this only syncs React's copy so the toggle renders the right icon.
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setTheme((localStorage.getItem("pg-theme") as "dark" | "light") ?? "dark");
     setCollapsed(localStorage.getItem("pg-rail") === "1");
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   useEffect(() => {
