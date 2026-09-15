@@ -102,6 +102,26 @@ enumerate within that budget is reported (`DOCSET_TOO_LARGE_TO_ENUMERATE`) and n
 is written, because a prefix of the file list is not the document set. Without a
 key, `freshness_check` accepts a manual count and says so in its findings.
 
+## The read-only UI (optional)
+
+A Next.js view of the same database, for watching a session's work at scale beside the Claude
+window. It is read-only by construction: the API process opens SQLite with `mode=ro`, never
+migrates, and SQLite refuses writes on that connection. The MCP server stays the only writer.
+
+```bash
+uv pip install --python .venv/bin/python -e ".[ui]"
+.venv/bin/prompt-graph-api                 # read API on 127.0.0.1:8787
+cd ui && pnpm install && pnpm dev           # UI on localhost:3000
+```
+
+Open `http://localhost:3000`, not `127.0.0.1:3000`: Next treats them as different origins and
+blocks its own dev resources from the second, which stops the page hydrating.
+
+The UI polls `/api/version` once a second. That returns `PRAGMA data_version`, which changes
+when another connection commits, so a table ingested through Claude appears without a reload.
+Point `prompt-graph-api --db` at the demo matter to see the evaluation views carry data; the
+prompt library has no recorded runs, so staleness and failures read as empty there.
+
 ## Upgrades
 
 Schema migrations are applied automatically when the server starts, and recorded in the
@@ -180,6 +200,8 @@ src/prompt_graph/
   readiness.py   table_readiness composition
   export.py      matter_export
   seed.py        demo matter loader
+  api.py         read-only HTTP API for the UI (optional [ui] extra)
+ui/              Next.js read-only view (overview page)
 fixtures/demo_matter.json
 tests/
 ```

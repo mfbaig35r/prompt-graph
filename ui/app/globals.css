@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #fafbfc;
+  --border: #e6e8ec;
+  --border-2: #d6d9df;
+  --edge: #b9c0cc;
+  --text: #0e1521;
+  --text-2: #4d5768;
+  --text-3: #8b94a3;
+  --accent: #4f46e5;
+  --accent-soft: #eef0fe;
+  --ok: #0f7b5f;
+  --ok-soft: #e6f4ef;
+  --warn: #9a6207;
+  --warn-soft: #fdf3e0;
+  --stop: #b4342a;
+  --stop-soft: #fceceb;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --surface: #151a22;
+    --surface-2: #1a2029;
+    --border: #252c37;
+    --border-2: #333c4a;
+    --edge: #46525f;
+    --text: #e8ebf0;
+    --text-2: #9aa4b4;
+    --text-3: #68727f;
+    --accent: #8b87f5;
+    --accent-soft: #221f3d;
+    --ok: #4ec09a;
+    --ok-soft: #10261f;
+    --warn: #d9a441;
+    --warn-soft: #2a2113;
+    --stop: #e8837a;
+    --stop-soft: #2d1818;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+* { border-color: var(--border); }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 500; letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.rowlink { transition: background 90ms ease; }
+.rowlink:hover { background: var(--surface-2); }
+
+.eyebrow {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--text-3);
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+::-webkit-scrollbar-track { background: transparent; }

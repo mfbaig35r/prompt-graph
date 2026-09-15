@@ -340,6 +340,40 @@ def connect(path: str | os.PathLike[str] | None = None) -> sqlite3.Connection:
     return conn
 
 
+def connect_readonly(
+    path: str | os.PathLike[str] | None = None, check_same_thread: bool = True
+) -> sqlite3.Connection:
+    """Open the database read-only, for a second process that must never write to it.
+
+    The MCP server is the only writer. A reader that called `connect()` would run migrations
+    and seed reference rows, writing to a client-data database from a process that has no
+    business doing so; SQLite refuses writes on this connection instead. WAL allows this
+    reader to run concurrently with the writer, and each statement sees the latest commit.
+    """
+    target = Path(path).expanduser() if path else db_path()
+    if not target.exists():
+        raise FileNotFoundError(f"No prompt-graph database at {target}")
+    conn = sqlite3.connect(
+        f"file:{target}?mode=ro",
+        uri=True,
+        isolation_level=None,
+        check_same_thread=check_same_thread,
+    )
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    return conn
+
+
+def data_version(conn: sqlite3.Connection) -> int:
+    """Changes whenever *another* connection commits.
+
+    The counter is per connection, so this is only meaningful on a connection that outlives
+    the writes it is watching. A fresh connection per call returns a constant and detects
+    nothing; see `api._version_conn`.
+    """
+    return int(conn.execute("PRAGMA data_version").fetchone()[0])
+
+
 def current_version(conn: sqlite3.Connection) -> int:
     has_table = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_version'"

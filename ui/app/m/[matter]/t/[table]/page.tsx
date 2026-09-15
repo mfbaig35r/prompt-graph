@@ -1,0 +1,167 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { Term } from "@/components/Tip";
+import { useLiveVersion } from "@/components/Live";
+import { Card, Crumbs, Eyebrow, GoChevron, Pill, statusTone } from "@/components/ui";
+import {
+  ClipboardCheck, FileText, FlaskConical, Files, LayoutGrid, ListChecks, Network, Scale,
+  CircleDashed, Variable,
+} from "lucide-react";
+
+const CAUSE_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
+  prompts: FileText,
+  graph: Network,
+  parameters: Variable,
+  consistency: Scale,
+  status: CircleDashed,
+  evaluation: FlaskConical,
+  coverage_dimensions: LayoutGrid,
+  document_set: Files,
+};
+import { ModuleGraph } from "@/components/ModuleGraph";
+import { getGraph, getTable, type TableDetail, type TableGraph } from "@/lib/api";
+
+const CAUSE_LABEL: Record<string, string> = {
+  prompts: "Prompt lint",
+  graph: "Dependencies",
+  parameters: "Parameters",
+  consistency: "Consistency",
+  status: "Lifecycle",
+  evaluation: "Evaluation",
+  coverage_dimensions: "Test coverage",
+  document_set: "Document set",
+};
+
+export default function TablePage() {
+  const p = useParams<{ matter: string; table: string }>();
+  const matter = decodeURIComponent(p.matter);
+  const table = decodeURIComponent(p.table);
+  const [d, setD] = useState<TableDetail | null>(null);
+  const [g, setG] = useState<TableGraph | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    getTable(matter, table).then(setD).catch((e) => setErr(String(e)));
+    getGraph(matter, table).then(setG).catch(() => setG(null));
+  }, [matter, table]);
+  useEffect(load, [load]);
+  useLiveVersion(load);
+
+  if (err) return <main className="px-8 py-8" style={{ color: "var(--stop)" }}>{err}</main>;
+  if (!d) return <main className="px-8 py-8" style={{ color: "var(--text-3)" }}>Loading…</main>;
+
+  const base = `/m/${encodeURIComponent(matter)}`;
+  const causes = Object.entries(d.readiness.by_cause ?? {}).filter(([, v]) => v.length > 0);
+
+  return (
+    <main className="px-8 py-7">
+      <Crumbs items={[{ label: matter, href: base }, { label: d.table }]} />
+      <div className="mb-5">
+        <h1 className="text-[19px] font-semibold tracking-[-0.01em]">{d.table}</h1>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <Pill tone="accent">{d.column_count} rules</Pill>
+          {d.grouping_enabled && <Pill>grouped</Pill>}
+          {d.readiness.total > 0 && <Pill tone="warn">{d.readiness.total} findings</Pill>}
+        </div>
+        {d.review_unit && (
+          <p className="mt-2.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
+            <span className="eyebrow mb-0 mr-1.5"><Term k="review_unit">One row =</Term></span>
+            {d.review_unit}
+          </p>
+        )}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
+        <section>
+          {g && g.edges.length > 0 && (
+            <div className="mb-6">
+              <Eyebrow icon={Network}>
+                <Term k="reference_graph">Reference graph</Term> · {g.edges.length} edges · {g.depth} levels
+              </Eyebrow>
+              <ModuleGraph g={g} base={`${base}/t/${encodeURIComponent(d.table)}`} />
+            </div>
+          )}
+          <Eyebrow icon={ListChecks}>Rules</Eyebrow>
+          <Card className="overflow-hidden">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="border-b" style={{ background: "var(--surface-2)" }}>
+                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">#</th>
+                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">Rule</th>
+                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold"><Term k="native_type">Type</Term></th>
+                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold"><Term k="role">Role</Term></th>
+                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold"><Term k="status">Status</Term></th>
+                  <th className="eyebrow mb-0 px-4 py-2.5 text-right font-semibold">Ver</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {d.columns.map((c) => (
+                  <tr key={c.column_id} className="rowlink border-b last:border-b-0">
+                    <td className="mono px-4 py-2.5 align-top text-[11.5px]" style={{ color: "var(--text-3)" }}>{c.position}</td>
+                    <td className="px-4 py-2.5 align-top">
+                      <Link
+                        href={`${base}/t/${encodeURIComponent(d.table)}/c/${encodeURIComponent(c.name)}`}
+                        className="font-medium hover:underline"
+                      >
+                        {c.name}
+                      </Link>
+                      {c.purpose && (
+                        <div className="mt-0.5 line-clamp-1 max-w-[440px] text-[12px]" style={{ color: "var(--text-3)" }}>
+                          {c.purpose}
+                        </div>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 align-top"><Term k={c.native_type} underline={false}><Pill>{c.native_type}</Pill></Term></td>
+                    <td className="whitespace-nowrap px-4 py-2.5 align-top text-[12.5px]" style={{ color: "var(--text-2)" }}>
+                      {c.role ? <Term k={c.role}>{c.role}</Term> : "–"}
+                    </td>
+                    <td className="px-4 py-2.5 align-top"><Term k={c.status} underline={false}><Pill tone={statusTone(c.status)}>{c.status}</Pill></Term></td>
+                    <td className="mono px-4 py-2.5 text-right align-top text-[12px]" style={{ color: "var(--text-2)" }}>{c.version}</td>
+                    <td className="w-8 pr-3 align-middle"><GoChevron /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </section>
+
+        <aside>
+          <Eyebrow icon={ClipboardCheck}>Readiness · {d.readiness.total}</Eyebrow>
+          <Card className="max-h-[70vh] overflow-y-auto">
+            {causes.length === 0 && (
+              <div className="px-4 py-3 text-[12.5px]" style={{ color: "var(--text-3)" }}>Nothing outstanding.</div>
+            )}
+            {causes.map(([cause, findings]) => (
+              <div key={cause} className="border-b last:border-b-0">
+                <div className="flex items-center justify-between px-4 py-2" style={{ background: "var(--surface-2)" }}>
+                  <span className="eyebrow mb-0 flex items-center gap-1.5">
+                    {(() => { const I = CAUSE_ICON[cause] ?? FileText; return <I size={12} />; })()}
+                    {CAUSE_LABEL[cause] ?? cause}
+                  </span>
+                  <span className="mono text-[11.5px]" style={{ color: "var(--text-3)" }}>{findings.length}</span>
+                </div>
+                {findings.slice(0, 8).map((f, i) => (
+                  <div key={i} className="border-t px-4 py-2 text-[12.5px]">
+                    <div className="mono mb-0.5 text-[10.5px]" style={{ color: "var(--text-3)" }}>
+                      <Term k={f.code}>{f.code}</Term>
+                    </div>
+                    <div style={{ color: "var(--text-2)" }}>{f.observation}</div>
+                  </div>
+                ))}
+                {findings.length > 8 && (
+                  <div className="border-t px-4 py-1.5 text-[11.5px]" style={{ color: "var(--text-3)" }}>
+                    +{findings.length - 8} more
+                  </div>
+                )}
+              </div>
+            ))}
+          </Card>
+        </aside>
+      </div>
+    </main>
+  );
+}

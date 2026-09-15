@@ -7,3 +7,7 @@ __pycache__/
 .pytest_cache/
 dist/
 .DS_Store
+node_modules/
+ui/.next/
+ui/out/
+ui/next-env.d.ts
