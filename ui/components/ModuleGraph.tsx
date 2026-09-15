@@ -162,18 +162,13 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
                     className="absolute rounded-lg border px-2.5 text-left"
                     style={{
                       left: x, top: y, width: NODE_W, height: NODE_H,
-                      background: isFocus ? "var(--surface-2)" : "var(--surface)",
+                      background: isFocus ? "var(--accent-soft)" : "var(--surface)",
                       // One uniform hairline in the role colour. Focus is a ring outside the
                       // border, so the colour coding survives selection instead of being
                       // overwritten by it.
                       borderColor: color,
                       opacity: dim ? 0.28 : 1,
-                      // Separated from the border by a gap, so selection never reads as a
-                      // thicker border on a node whose role colour is already the accent.
-                      boxShadow: isFocus
-                        ? "0 0 0 2.5px var(--canvas), 0 0 0 4px var(--accent)"
-                        : "none",
-                      transition: "opacity 90ms, background 90ms, box-shadow 90ms",
+                      transition: "opacity 90ms, background 90ms",
                     }}
                     title={
                       `${n.name} · ${n.native_type}${n.role ? ` · ${n.role}` : ""}` +
