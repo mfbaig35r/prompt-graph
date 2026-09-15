@@ -186,14 +186,24 @@ def concepts(matter: str) -> dict[str, Any]:
         # used in 23 modules with an identical rule everywhere is agreement, not divergence.
         divergent.sort(key=lambda d: (-d["distinct_option_sets"], -len(d["members"])))
 
-        variants = [
-            {
-                "observation": f.observation,
-                "members": [resolve(r) for r in f.evidence.get("columns", [])],
-            }
-            for f in res["findings"]
-            if f.code == "CONCEPT_NAME_VARIANT"
-        ]
+        variants = []
+        for f in res["findings"]:
+            if f.code != "CONCEPT_NAME_VARIANT":
+                continue
+            members = [resolve(r) for r in f.evidence.get("columns", [])]
+            variants.append(
+                {
+                    "names": f.evidence.get("names") or sorted({mm["column"] for mm in members}),
+                    "observation": f.observation,
+                    "confidence": f.evidence.get("confidence", "strong"),
+                    "reasons": f.evidence.get("confidence_reasons", []),
+                    "concept": f.evidence.get("concept"),
+                    "members": members,
+                    "tables": len({mm["table"] for mm in members}),
+                }
+            )
+        # What to act on first, then what merely warrants a look.
+        variants.sort(key=lambda v: (v["confidence"] != "strong", -len(v["names"]), v["names"][0]))
         other = [
             f
             for f in res["findings"]
@@ -207,6 +217,7 @@ def concepts(matter: str) -> dict[str, Any]:
             "counts": {
                 "divergent": len(divergent),
                 "name_variants": len(variants),
+                "name_variants_strong": sum(1 for v in variants if v["confidence"] == "strong"),
                 "other": len(other),
             },
         }

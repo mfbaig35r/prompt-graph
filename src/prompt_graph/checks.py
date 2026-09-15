@@ -134,7 +134,47 @@ def entity_variants(text: str, exact_name: str) -> list[str]:
 
 # --- name similarity ------------------------------------------------------------------
 
-_STOP = {"the", "of", "and", "or", "a", "an", "in", "for", "to", "detail", "details"}
+_STOP = {
+    "the",
+    "of",
+    "and",
+    "or",
+    "a",
+    "an",
+    "in",
+    "for",
+    "to",
+    "detail",
+    "details",
+    # Prepositions carry no subject matter, but counted as shared tokens they pull unrelated
+    # names over the similarity threshold: "Acceleration on Change of Control" and "Survival on
+    # Change of Control" are different provisions that agreed on "on", "change" and "control".
+    "on",
+    "at",
+    "by",
+    "with",
+    "from",
+    "under",
+    "per",
+    "as",
+}
+
+# Tokens that usually distinguish a genuinely different question rather than a renamed one:
+# a plan's default versus one instrument's actual, a former name versus the current one.
+_QUALIFIERS = {
+    "default",
+    "standard",
+    "form",
+    "primary",
+    "secondary",
+    "initial",
+    "current",
+    "former",
+    "prior",
+    "proposed",
+    "maximum",
+    "minimum",
+}
 
 
 def _tokens(name: str) -> set[str]:
@@ -405,6 +445,7 @@ def suite_check(
                     "column": c["name"],
                     "column_id": int(c["id"]),
                     "native_type": c["native_type"],
+                    "role": c["role"],
                     "options": json.loads(c["configured_options"])
                     if c["configured_options"]
                     else None,
@@ -548,32 +589,101 @@ def suite_check(
                     )
                 )
         # Similar names without a shared concept tag (heuristic).
-        for i, x in enumerate(all_cols):
-            for y in all_cols[i + 1 :]:
-                if x["table_id"] == y["table_id"] or (x["column_id"], y["column_id"]) in seen_pairs:
+        #
+        # Compare distinct NAMES, not column instances. Comparing instances emitted one finding
+        # per module pair, so a name used in 21 modules produced 21 identical findings about the
+        # same concept. Names that link transitively are one cluster and one finding: `Governing
+        # Law` and `Jurisdiction and Governing Law` and any third variant are one observation
+        # about one concept, not three pairwise ones.
+        by_lower: dict[str, list[dict[str, Any]]] = {}
+        for c in all_cols:
+            by_lower.setdefault(c["column"].strip().lower(), []).append(c)
+        # A name is a candidate unless every instance of it already carries a concept tag, in
+        # which case the explicit path above owns it.
+        candidates = sorted(k for k, g in by_lower.items() if not all(x["concept"] for x in g))
+        toks = {k: _tokens(k) for k in candidates}
+
+        links: list[tuple[str, str]] = []
+        parent: dict[str, str] = {k: k for k in candidates}
+
+        def find(a: str) -> str:
+            while parent[a] != a:
+                parent[a] = parent[parent[a]]
+                a = parent[a]
+            return a
+
+        for i, a in enumerate(candidates):
+            for b in candidates[i + 1 :]:
+                if len(toks[a]) < 2 or len(toks[b]) < 2:
                     continue
-                if x["column"].lower() == y["column"].lower():
+                if _jaccard(toks[a], toks[b]) < 0.6:
                     continue
-                if x["concept"] and y["concept"]:
-                    continue
-                tx, ty = _tokens(x["column"]), _tokens(y["column"])
-                if len(tx) >= 2 and len(ty) >= 2 and _jaccard(tx, ty) >= 0.6:
-                    findings["consistency"].append(
-                        Finding(
-                            "CONCEPT_NAME_VARIANT",
-                            "matter",
-                            matter_id,
-                            m["name"],
-                            f"'{x['table']} / {x['column']}' and '{y['table']} / {y['column']}' have similar names and no shared concept tag.",
-                            {
-                                "columns": [
-                                    f"{x['table']} / {x['column']}",
-                                    f"{y['table']} / {y['column']}",
-                                ],
-                                "heuristic": "token overlap",
-                            },
-                        )
-                    )
+                links.append((a, b))
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parent[ra] = rb
+
+        clusters: dict[str, list[str]] = {}
+        for k in candidates:
+            if any(k in pair for pair in links):
+                clusters.setdefault(find(k), []).append(k)
+
+        for members in clusters.values():
+            if len(members) < 2:
+                continue
+            cols = [c for name in members for c in by_lower[name]]
+            if len({c["table_id"] for c in cols}) < 2:
+                continue
+            display = sorted({c["column"] for c in cols})
+            # A cluster is weaker evidence when its members differ in role, or when what
+            # separates the names is a qualifier: those usually mark a different question
+            # rather than the same one renamed.
+            diff_tokens: set[str] = set()
+            for name in members:
+                diff_tokens |= toks[name] - set.intersection(*(toks[n] for n in members))
+            roles = {c["role"] for c in cols if c["role"]}
+            linked = {frozenset(pair) for pair in links}
+            clique = all(
+                frozenset((a, b)) in linked for i, a in enumerate(members) for b in members[i + 1 :]
+            )
+            reasons = []
+            if not clique:
+                reasons.append("members are joined transitively, not all to each other")
+            if diff_tokens & _QUALIFIERS:
+                reasons.append(
+                    f"qualifier {sorted(diff_tokens & _QUALIFIERS)!r} distinguishes them"
+                )
+            # Only a role split across the orientation boundary counts. Orientation runs first
+            # and establishes what the row is, so orientation-versus-substantive is a real
+            # signal that two questions differ. Extraction versus validation versus
+            # reconciliation are all substantive and routinely drift on the same question:
+            # treating that as evidence downgraded the best finding in the corpus, where
+            # `Owner Matches Target Entity` and `Holder Matches Target Entity` ask one question
+            # and happen to be tagged extraction and reconciliation.
+            if "orientation" in roles and roles - {"orientation"}:
+                reasons.append(
+                    f"one member is orientation, the others are {', '.join(sorted(roles - {'orientation'}))}"
+                )
+            confidence = "possible" if reasons else "strong"
+            findings["consistency"].append(
+                Finding(
+                    "CONCEPT_NAME_VARIANT",
+                    "matter",
+                    matter_id,
+                    m["name"],
+                    f"{len(display)} similar column names across {len({c['table_id'] for c in cols})} tables have no shared concept tag: "
+                    + ", ".join(f"'{n}'" for n in display)
+                    + ".",
+                    {
+                        "names": display,
+                        "columns": [f"{c['table']} / {c['column']}" for c in cols],
+                        "confidence": confidence,
+                        "confidence_reasons": reasons,
+                        "links": [[a, b] for a, b in links if find(a) == find(members[0])],
+                        "heuristic": "token overlap",
+                    },
+                )
+            )
 
     counts = {fam: len(v) for fam, v in findings.items()}
     by_code: dict[str, int] = {}

@@ -59,23 +59,52 @@ export default function ConceptsPage() {
         ))}
       </div>
 
-      <div className="mt-10"><Panel title={`Similar names, no shared concept · ${d.name_variants.length}`} icon={Shuffle}>
-        {d.name_variants.map((v, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-2 border-b px-5 py-2.5 text-[12.5px] last:border-b-0">
-            {v.members.map((mm, j) => (
-              <span key={j} className="flex items-center gap-2">
-                {j > 0 && <span style={{ color: "var(--text-3)" }}>vs</span>}
-                <Link
-                  href={`${base}/t/${encodeURIComponent(mm.table)}/c/${encodeURIComponent(mm.column)}`}
-                  className="hover:underline"
-                >
-                  <span className="font-medium">{mm.column}</span>
-                  <span style={{ color: "var(--text-3)" }}> · {mm.table}</span>
-                </Link>
-              </span>
-            ))}
-          </div>
-        ))}
+      <div className="mt-10">
+        <Panel
+          title={`Similar names, no shared concept · ${d.name_variants.length}`}
+          icon={Shuffle}
+          right={
+            <span className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
+              {d.counts.name_variants_strong} strong ·{" "}
+              {d.name_variants.length - d.counts.name_variants_strong} possible
+            </span>
+          }
+        >
+          {d.name_variants.map((v, i) => (
+            <div key={i} className="border-b px-5 py-3 last:border-b-0">
+              <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
+                <Pill tone={v.confidence === "strong" ? "warn" : "neutral"}>{v.confidence}</Pill>
+                {v.names.map((n, j) => (
+                  <span key={n} className="flex items-center gap-2">
+                    {j > 0 && <span style={{ color: "var(--text-3)" }}>vs</span>}
+                    <span className="font-medium">{n}</span>
+                  </span>
+                ))}
+                <span className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
+                  across {v.tables} modules
+                </span>
+              </div>
+
+              {v.reasons.length > 0 && (
+                <div className="mt-1 text-[11.5px]" style={{ color: "var(--text-3)" }}>
+                  {v.reasons.join(" · ")}
+                </div>
+              )}
+
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                {v.members.map((mm, j) => (
+                  <Link
+                    key={j}
+                    href={`${base}/t/${encodeURIComponent(mm.table)}/c/${encodeURIComponent(mm.column)}`}
+                    className="text-[11.5px] hover:underline"
+                    style={{ color: "var(--text-2)" }}
+                  >
+                    {mm.table} <span style={{ color: "var(--text-3)" }}>/ {mm.column}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
       </Panel></div>
     </main>
   );

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from prompt_graph.checks import entity_variants
-from prompt_graph.models import ConsumerBinding, EntityRecord
+from prompt_graph.models import ConsumerBinding, EntityRecord, TableMeta
 from prompt_graph.server import (
     column_revise,
     matter_open,
@@ -301,3 +301,99 @@ def test_standard_fields_carry_forward(conn):
     standard_set("firm", currency_pattern="USD 1,000.00")
     res = standard_set("firm", naming_rules="exact names")
     assert res["effective"]["currency_pattern"] == "USD 1,000.00" and res["version"] == 3
+
+
+# --- name-variant clustering and confidence --------------------------------------------------
+
+
+def _seed(rows):
+    """rows: (table, column, role). One column per table, enough to compare names across."""
+    matter_open(HARBOR, create=True)
+    for table, column, role in rows:
+        table_ingest(
+            HARBOR,
+            table,
+            [col(column, 1, CLEAN_FR, role=role)],
+            table_meta=TableMeta(review_unit="one document"),
+            table_instructions=INSTR,
+        )
+    return by_code(suite_check(HARBOR)).get("CONCEPT_NAME_VARIANT", [])
+
+
+def test_one_finding_per_cluster_not_per_module_pair(conn):
+    """One finding was emitted per column PAIR, so a name used in n tables produced n-1
+    identical findings about the same concept."""
+    v = _seed(
+        [(f"T{i}", "Documents in Unit", "orientation") for i in range(1, 6)]
+        + [("TX", "Governing Documents in Unit", "orientation")]
+    )
+    assert len(v) == 1, [f["observation"] for f in v]
+    e = v[0]["evidence"]
+    assert set(e["names"]) == {"Documents in Unit", "Governing Documents in Unit"}
+    assert len(e["columns"]) == 6  # every instance still listed, nothing lost by grouping
+
+
+def test_unrelated_provisions_sharing_a_preposition_do_not_cluster(conn):
+    """`on`, `change` and `control` are shared by provisions with nothing else in common;
+    counting prepositions as meaning merged them at exactly the 0.6 threshold."""
+    assert (
+        _seed(
+            [
+                ("A", "Acceleration on Change of Control", "extraction"),
+                ("B", "Survival on Change of Control", "extraction"),
+                ("C", "Transferability on Change of Control", "extraction"),
+            ]
+        )
+        == []
+    )
+
+
+def test_qualifier_downgrades_confidence(conn):
+    """A plan's default and one instrument's actual are different questions."""
+    (f,) = _seed(
+        [
+            ("A", "Post-Termination Exercise Period", "extraction"),
+            ("B", "Default Post-Termination Exercise", "extraction"),
+        ]
+    )
+    assert f["evidence"]["confidence"] == "possible"
+    assert any("qualifier" in r for r in f["evidence"]["confidence_reasons"])
+
+
+def test_substantive_role_drift_does_not_downgrade(conn):
+    """Extraction, validation and reconciliation routinely drift on one question. Counting that
+    as evidence of difference downgraded the strongest real finding in the corpus."""
+    (f,) = _seed(
+        [
+            ("A", "Owner Matches Target Entity", "extraction"),
+            ("B", "Holder Matches Target Entity", "reconciliation"),
+        ]
+    )
+    assert f["evidence"]["confidence"] == "strong", f["evidence"]["confidence_reasons"]
+
+
+def test_orientation_boundary_does_downgrade(conn):
+    """Orientation runs first and establishes the row, so orientation versus substantive is a
+    real signal that two questions differ."""
+    (f,) = _seed(
+        [
+            ("A", "Dispute Resolution", "orientation"),
+            ("B", "Dispute Resolution Provisions", "extraction"),
+        ]
+    )
+    assert f["evidence"]["confidence"] == "possible"
+    assert any("orientation" in r for r in f["evidence"]["confidence_reasons"])
+
+
+def test_transitive_membership_is_flagged(conn):
+    """A resembles B and A resembles C, but B and C do not resemble each other."""
+    (f,) = _seed(
+        [
+            ("A", "Commencement Date", "extraction"),
+            ("B", "Rent Commencement Date", "extraction"),
+            ("C", "Vesting Commencement Date", "extraction"),
+        ]
+    )
+    assert len(f["evidence"]["names"]) == 3
+    assert f["evidence"]["confidence"] == "possible"
+    assert any("transitively" in r for r in f["evidence"]["confidence_reasons"])

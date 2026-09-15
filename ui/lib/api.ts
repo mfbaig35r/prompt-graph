@@ -156,12 +156,22 @@ export type Divergence = {
   distinct_option_sets: number;
   native_types: string[];
 };
+export type NameVariant = {
+  names: string[];
+  observation: string;
+  confidence: "strong" | "possible";
+  reasons: string[];
+  concept: string | null;
+  members: ConceptMember[];
+  tables: number;
+};
+
 export type Concepts = {
   matter: string;
   divergent: Divergence[];
-  name_variants: { observation: string; members: ConceptMember[] }[];
+  name_variants: NameVariant[];
   other: Finding[];
-  counts: { divergent: number; name_variants: number; other: number };
+  counts: { divergent: number; name_variants: number; name_variants_strong: number; other: number };
 };
 
 export const getConcepts = (m: string) =>
