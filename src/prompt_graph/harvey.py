@@ -24,11 +24,25 @@ ENV_BASE = "HARVEY_API_BASE"
 DEFAULT_BASE = "https://api.harvey.ai"
 PAGE_SIZE = 100
 
+# Vault allows ten requests a minute per organisation, shared with everything else the firm
+# is doing in Harvey. One poll never spends more than this, so a project too large to
+# enumerate degrades into a reported finding instead of a 429 partway through, which would
+# discard the pages already fetched and leave every retry restarting from the first cursor.
+MAX_REQUESTS_PER_POLL = 8
+
 Fetcher = Callable[[str, dict[str, str]], dict[str, Any]]
 
 
 class HarveyUnavailable(Exception):
-    """The API cannot be used: not configured, rejected, or answered in an unexpected shape."""
+    """The API cannot be used: not configured, rejected, or answered in an unexpected shape.
+
+    `rate_limited` marks the one cause that is organisation-wide rather than specific to this
+    project, so a caller polling several projects knows to stop rather than fail each in turn.
+    """
+
+    def __init__(self, message: str, *, rate_limited: bool = False) -> None:
+        super().__init__(message)
+        self.rate_limited = rate_limited
 
 
 def configured() -> bool:
@@ -44,7 +58,8 @@ def _default_fetcher(url: str, headers: dict[str, str]) -> dict[str, Any]:
         body = e.read().decode("utf-8", "replace")[:300]
         if e.code == 429:
             raise HarveyUnavailable(
-                "Harvey rate limit reached (Vault allows 10 requests a minute per organisation); try again shortly."
+                "Harvey rate limit reached (Vault allows 10 requests a minute per organisation); try again shortly.",
+                rate_limited=True,
             ) from e
         raise HarveyUnavailable(f"Harvey returned HTTP {e.code} for {url}: {body}") from e
     except urllib.error.URLError as e:
@@ -56,14 +71,21 @@ def list_ready_files(
     fetcher: Fetcher | None = None,
     api_key: str | None = None,
     base_url: str | None = None,
-) -> tuple[list[dict[str, Any]], int]:
-    """Every ready_to_query file in a Vault project: [{id, uploaded_at, deleted_at}], and the
-    number of requests it took (so callers can reason about the rate limit)."""
+    max_requests: int = MAX_REQUESTS_PER_POLL,
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Every ready_to_query file in a Vault project.
+
+    Returns (files, requests_used, complete). `complete` is False when the project has more
+    pages than `max_requests` allowed: the file list is then a prefix, not the document set,
+    and the caller must not record it as a snapshot.
+    """
     key = api_key or os.environ.get(ENV_KEY)
     if not key:
         raise HarveyUnavailable(
             f"{ENV_KEY} is not set; supply the document count manually or configure the API key."
         )
+    if max_requests < 1:
+        raise HarveyUnavailable("No Vault request budget left for this poll.")
     base = (base_url or os.environ.get(ENV_BASE) or DEFAULT_BASE).rstrip("/")
     fetch = fetcher or _default_fetcher
     headers = {"Authorization": f"Bearer {key}", "Accept": "application/json"}
@@ -100,11 +122,9 @@ def list_ready_files(
                 }
             )
         if page.get("has_more") and page.get("next_cursor"):
+            if requests >= max_requests:
+                return files, requests, False
             cursor = str(page["next_cursor"])
-            if requests >= 50:
-                raise HarveyUnavailable(
-                    "Stopped after 50 pages; the project is larger than expected."
-                )
             continue
         break
-    return files, requests
+    return files, requests, True

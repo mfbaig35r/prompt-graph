@@ -326,3 +326,72 @@ def test_readiness_clean_table_has_only_lifecycle_findings(conn):
     )
     r = table_readiness("M", "T")
     assert r["total"] == 0 and r["document_set"] == "current"
+
+
+def _raw_codes(res):
+    """freshness.freshness_check is the module function, so its findings are Finding objects."""
+    return sorted(f.code for f in res["findings"])
+
+
+def _endless_page(_url, _headers):
+    """A project that always has another page: larger than any request budget."""
+    return {
+        "files": [{"id": "f", "uploaded_at": "2026-09-01T00:00:00Z"}],
+        "has_more": True,
+        "next_cursor": "next",
+    }
+
+
+def test_enumeration_stops_at_the_request_budget():
+    files, requests, complete = harvey.list_ready_files(
+        "vp", fetcher=_endless_page, api_key="k", max_requests=3
+    )
+    assert requests == 3 and complete is False and len(files) == 3
+
+
+def test_project_too_large_to_enumerate_records_no_snapshot(harbor, monkeypatch):
+    """A prefix of the file list is not the document set, so nothing is written."""
+    monkeypatch.setenv(harvey.ENV_KEY, "k")
+    matter_open(HARBOR, vault_project_id="vp-big")
+    r = freshness.freshness_check(harbor, HARBOR, refresh=True, fetcher=_endless_page)
+
+    assert r["refreshed"] == []
+    too_large = [f for f in r["findings"] if f.code == "DOCSET_TOO_LARGE_TO_ENUMERATE"]
+    assert len(too_large) == 1
+    assert too_large[0].evidence["requests_spent"] == harvey.MAX_REQUESTS_PER_POLL
+    # No snapshot, so every table still reads as unobserved rather than as a shrunken set.
+    assert all(t["state"] == "unobserved" for t in r["tables"])
+
+
+def test_request_budget_is_shared_across_projects(harbor, monkeypatch):
+    """Vault's limit is per organisation, so one oversized project cannot starve the rest
+    silently: the projects it crowded out are reported."""
+    monkeypatch.setenv(harvey.ENV_KEY, "k")
+    matter_open(HARBOR, vault_project_id="vp-matter")
+    table_ingest(HARBOR, ER, [], table_meta=TableMeta(vault_project_id="vp-big"))
+    table_ingest(HARBOR, "Charter Documents", [], table_meta=TableMeta(vault_project_id="vp-two"))
+
+    # Three distinct projects: vp-big, vp-two, and vp-matter for the two untouched tables.
+    # The first spends the whole budget; both of the others are reported, never skipped silently.
+    r = freshness.freshness_check(harbor, HARBOR, refresh=True, fetcher=_endless_page)
+    assert r["refreshed"] == []
+    assert _raw_codes(r).count("DOCSET_TOO_LARGE_TO_ENUMERATE") == 1
+    assert _raw_codes(r).count("DOCSET_POLL_BUDGET_SPENT") == 2
+
+
+def test_rate_limit_stops_the_rest_of_the_call(harbor, monkeypatch):
+    """A 429 is organisation-wide, so the remaining projects are reported, not re-polled."""
+    monkeypatch.setenv(harvey.ENV_KEY, "k")
+    calls: list[str] = []
+
+    def rate_limited(url, _headers):
+        calls.append(url)
+        raise harvey.HarveyUnavailable("rate limited", rate_limited=True)
+
+    matter_open(HARBOR, vault_project_id="vp-matter")
+    table_ingest(HARBOR, ER, [], table_meta=TableMeta(vault_project_id="vp-one"))
+
+    r = freshness.freshness_check(harbor, HARBOR, refresh=True, fetcher=rate_limited)
+    assert len(calls) == 1  # the second project is never polled
+    assert _raw_codes(r).count("HARVEY_UNAVAILABLE") == 1
+    assert _raw_codes(r).count("DOCSET_POLL_BUDGET_SPENT") == 1

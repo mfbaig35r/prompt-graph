@@ -8,6 +8,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Job level, not step level: a step's own `env:` is not in scope for that step's own
+    # `if:`, and `secrets` is not available in a step `if` at all. Setting it here is what
+    # makes the optional skill checkout below actually run when the secret is configured.
+    env:
+      SKILL_REPO_TOKEN: ${{ secrets.SKILL_REPO_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -25,8 +30,6 @@ jobs:
           repository: mfbaig35r/legal-review-table-builder
           token: ${{ env.SKILL_REPO_TOKEN }}
           path: legal-review-table-builder-skill
-        env:
-          SKILL_REPO_TOKEN: ${{ secrets.SKILL_REPO_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:

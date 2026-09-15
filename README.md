@@ -34,7 +34,7 @@ This installs a `prompt-graph` executable inside `.venv/bin/`. Check it:
 
 ```bash
 .venv/bin/prompt-graph --migrate
-# schema version 1 at /Users/<you>/.prompt-graph/prompt-graph.db
+# schema version 2 at /Users/<you>/.prompt-graph/prompt-graph.db
 ```
 
 ## Configure
@@ -96,7 +96,10 @@ Document-set freshness can poll the Harvey Vault API instead of relying on a man
 supplied document count. Set `HARVEY_API_KEY` (a bearer token, server-side only) and, for
 EU or AU deployments, `HARVEY_API_BASE` (`https://eu.api.harvey.ai` or
 `https://au.api.harvey.ai`). Vault endpoints allow ten requests a minute per organisation;
-the server caches an observation for five minutes and never polls per column. Without a
+the server caches an observation for five minutes, never polls per column, and spends at
+most eight requests per call across every project it observes. A vault too large to
+enumerate within that budget is reported (`DOCSET_TOO_LARGE_TO_ENUMERATE`) and no snapshot
+is written, because a prefix of the file list is not the document set. Without a
 key, `freshness_check` accepts a manual count and says so in its findings.
 
 ## Upgrades

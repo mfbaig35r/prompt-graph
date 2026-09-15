@@ -293,6 +293,9 @@ def freshness_check(
             raise PromptGraphError(
                 "A manual count applies to one vault project; name the table or pass vault_project_id."
             )
+        # Vault's ten-a-minute limit is per organisation, so the budget is shared across every
+        # project observed in this call, not spent afresh on each one.
+        budget = harvey.MAX_REQUESTS_PER_POLL
         for p in projects:
             prev = latest_snapshot(conn, matter_id, p)
             if manual:
@@ -339,9 +342,28 @@ def freshness_check(
                         }
                     )
                     continue
+            if budget < 1:
+                findings.append(
+                    Finding(
+                        "DOCSET_POLL_BUDGET_SPENT",
+                        "matter",
+                        matter_id,
+                        m["name"],
+                        f"Vault project {p} was not observed because this call's Vault request "
+                        f"budget was already spent on earlier projects.",
+                        {"vault_project_id": p, "request_budget": harvey.MAX_REQUESTS_PER_POLL},
+                    )
+                )
+                continue
             try:
-                files, requests = harvey.list_ready_files(p, fetcher=fetcher)
+                files, requests, complete = harvey.list_ready_files(
+                    p, fetcher=fetcher, max_requests=budget
+                )
             except harvey.HarveyUnavailable as e:
+                if e.rate_limited:
+                    # The limit is organisation-wide, so polling the next project would only
+                    # produce the same 429. Stop, and report the ones left unobserved.
+                    budget = 0
                 findings.append(
                     Finding(
                         "HARVEY_UNAVAILABLE",
@@ -350,6 +372,28 @@ def freshness_check(
                         m["name"],
                         f"The Harvey Vault API could not be used for project {p}: {e}",
                         {"vault_project_id": p},
+                    )
+                )
+                continue
+            budget -= requests
+            if not complete:
+                # A prefix of the file list is not the document set. Recording it would put a
+                # false count into the snapshot history and read later as documents removed.
+                findings.append(
+                    Finding(
+                        "DOCSET_TOO_LARGE_TO_ENUMERATE",
+                        "matter",
+                        matter_id,
+                        m["name"],
+                        f"Vault project {p} holds more ready documents than {harvey.MAX_REQUESTS_PER_POLL} "
+                        f"requests of {harvey.PAGE_SIZE} can enumerate, so no snapshot was recorded; "
+                        f"{len(files)} documents were seen before the budget ran out.",
+                        {
+                            "vault_project_id": p,
+                            "documents_seen": len(files),
+                            "requests_spent": requests,
+                            "request_budget": harvey.MAX_REQUESTS_PER_POLL,
+                        },
                     )
                 )
                 continue

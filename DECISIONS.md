@@ -235,6 +235,17 @@ the ten-a-minute limit, and fails loudly on an unexpected response shape. Freshn
 surfaced beside staleness in the overview, as a reliability reason in coverage, and in
 readiness; it is never folded into staleness.
 
+**Corrected 2026-09-15: enumeration is budgeted.** One call spends at most eight Vault
+requests, shared across every project it observes, because the ten-a-minute limit is per
+organisation and is shared with everything else the firm is doing in Harvey. Unbudgeted, a
+vault holding more than roughly 800 ready documents could never be observed at all: the poll
+took a 429 partway through, discarded the pages already fetched, and every retry restarted
+from the first cursor and spent the budget again. An oversized vault now produces
+`DOCSET_TOO_LARGE_TO_ENUMERATE` and **no snapshot**, because a prefix of the file list is not
+the document set and recording it would read later as documents removed. Projects crowded out
+by an earlier one produce `DOCSET_POLL_BUDGET_SPENT` rather than being skipped silently. The
+manual path is unaffected and remains the answer for a large vault.
+
 **A.2 reverse coverage.** `impact_of_change`, `staleness_report`, and `freshness_check` end
 with `memo_consequences`: assertions whose sources are affected, `unsupported` when every
 active source is, `weakened` when some are. The changed column itself counts as affected,
