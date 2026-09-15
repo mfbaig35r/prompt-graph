@@ -122,6 +122,47 @@ when another connection commits, so a table ingested through Claude appears with
 Point `prompt-graph-api --db` at the demo matter to see the evaluation views carry data; the
 prompt library has no recorded runs, so staleness and failures read as empty there.
 
+### Showing it on another machine
+
+The database is a local file and this view reads it directly, so "sharing the UI" is really a
+question about where that file goes. Decide which database first.
+
+- **Project Harbor** (`prompt-graph --db /tmp/harbor.db --seed-demo`) is fictional and safe to
+  copy anywhere. It is also the only database with recorded runs, so the evaluation views carry
+  data there and read as empty against a prompt library that has never been run.
+- A **real matter** is client data. Copying it to another machine is a data-handling decision,
+  not a setup step.
+
+**Run it on the other machine.** The portable option: everything stays local to whoever is
+looking at it.
+
+```bash
+git clone git@github.com:mfbaig35r/prompt-graph.git && cd prompt-graph
+uv venv .venv && uv pip install --python .venv/bin/python -e ".[ui]"
+.venv/bin/prompt-graph --db ~/.prompt-graph/prompt-graph.db --seed-demo   # or copy a .db across
+.venv/bin/prompt-graph-api &
+cd ui && pnpm install && pnpm dev
+```
+
+Copy the `-wal` and `-shm` sidecars with the `.db` if the server was running when you copied it,
+or checkpoint first with `sqlite3 the.db "PRAGMA wal_checkpoint(TRUNCATE);"`.
+
+**Serve it to another machine on the same network.** Both processes have to bind beyond
+loopback, and the browser's origin changes, so the API has to be told to accept it:
+
+```bash
+PROMPT_GRAPH_UI_ORIGINS="http://192.168.0.129:3000"   .venv/bin/prompt-graph-api --host 0.0.0.0 &
+cd ui && NEXT_PUBLIC_API=http://192.168.0.129:8787 pnpm dev -H 0.0.0.0
+```
+
+Use the machine's real address in all three places. Miss the origin and the page sits on
+"Loading" with nothing in the API log, because the browser blocks the call before it is sent.
+
+**Over the internet.** A tunnel needs both ports exposed, `NEXT_PUBLIC_API` pointed at the
+tunnelled API, and that URL in `PROMPT_GRAPH_UI_ORIGINS`. There is no authentication in front of
+any of this: anyone with the link reads the whole matter. Fine for Harbor, not for client data.
+For a client demo, screen sharing carries none of that risk.
+
 ## Upgrades
 
 Schema migrations are applied automatically when the server starts, and recorded in the

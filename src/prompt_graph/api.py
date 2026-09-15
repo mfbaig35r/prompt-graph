@@ -11,6 +11,7 @@ where access control will have to go when this is hosted.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -26,9 +27,21 @@ from .findings import Finding, PromptGraphError, dump
 app = FastAPI(title="prompt-graph read API", version="0.1.0")
 
 # The UI is a separate origin in development. Hosting will put both behind one origin.
+# Serving the UI from anywhere but localhost (a LAN address, a tunnel) makes it a new origin,
+# and a blocked request shows up as a page stuck on "Loading" with nothing in the API log, so
+# the allowed list is configurable rather than something to discover the hard way.
+ENV_ORIGINS = "PROMPT_GRAPH_UI_ORIGINS"
+DEFAULT_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
+
+
+def allowed_origins() -> list[str]:
+    raw = os.environ.get(ENV_ORIGINS, "")
+    return [o.strip() for o in raw.split(",") if o.strip()] or list(DEFAULT_ORIGINS)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=allowed_origins(),
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -369,7 +382,5 @@ def main() -> None:
     p.add_argument("--port", type=int, default=8787)
     a = p.parse_args()
     if a.db:
-        import os
-
         os.environ[db.ENV_VAR] = a.db
     uvicorn.run(app, host=a.host, port=a.port)
