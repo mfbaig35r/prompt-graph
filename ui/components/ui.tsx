@@ -53,7 +53,7 @@ export function Stat({
 }) {
   const color = tone === "stop" ? "var(--stop)" : tone === "warn" ? "var(--warn)" : tone === "ok" ? "var(--ok)" : "var(--text)";
   return (
-    <div className="card px-4 py-3">
+    <div className="card px-5 py-4">
       <div className="flex items-start justify-between gap-2">
         <div className="mono text-[20px] font-semibold leading-none" style={{ color }}>{value}</div>
         {Icon && <span style={{ color: "var(--text-3)" }}><Icon size={14} strokeWidth={2} /></span>}
@@ -65,7 +65,7 @@ export function Stat({
 
 export function Crumbs({ items }: { items: { label: string; href?: string }[] }) {
   return (
-    <nav className="mb-3 flex flex-wrap items-center gap-1.5 text-[12px]" style={{ color: "var(--text-3)" }}>
+    <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-[12px]" style={{ color: "var(--text-3)" }}>
       {items.map((it, i) => (
         <span key={i} className="flex items-center gap-1.5">
           {i > 0 && <ChevronRight size={12} style={{ color: "var(--border-2)" }} />}
@@ -96,13 +96,13 @@ export function PageHeader({
   crumbs?: { label: string; href?: string }[];
 }) {
   return (
-    <div className="mb-6">
+    <div className="mb-9">
       {crumbs && <Crumbs items={crumbs} />}
-      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
           <h1 className="text-[21px] font-semibold tracking-[-0.015em]">{title}</h1>
           {description && (
-            <p className="mt-1 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
+            <p className="mt-2.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
               {description}
             </p>
           )}
@@ -131,7 +131,7 @@ export function Panel({
   return (
     <section className={`card overflow-hidden ${className}`}>
       <div
-        className="flex items-center justify-between gap-3 border-b px-4 py-2.5"
+        className="flex items-center justify-between gap-3 border-b px-5 py-3"
         style={{ background: "var(--surface-2)" }}
       >
         <span className="eyebrow flex items-center gap-1.5">

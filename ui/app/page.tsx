@@ -11,7 +11,7 @@ export default function Home() {
       .catch(() => {});
   }, [router]);
   return (
-    <main className="px-8 py-8" style={{ color: "var(--text-3)" }}>
+    <main className="mx-auto w-full max-w-[1560px] px-10 py-10" style={{ color: "var(--text-3)" }}>
       Loading…
     </main>
   );

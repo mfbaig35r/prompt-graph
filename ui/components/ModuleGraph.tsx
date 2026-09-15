@@ -8,11 +8,11 @@ import { GLOSSARY } from "@/lib/glossary";
 import type { TableGraph } from "@/lib/api";
 
 const NODE_W = 184;
-const NODE_H = 40;
-const ROW_H = 52;
-const COL_GAP = 104;
-const PAD = 18;
-const PAD_BOTTOM = 34;
+const NODE_H = 42;
+const ROW_H = 60;
+const COL_GAP = 116;
+const PAD = 26;
+const PAD_BOTTOM = 40;
 
 const ROLE_COLOR: Record<string, string> = {
   orientation: "var(--accent)",
@@ -94,7 +94,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_236px]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_252px]">
       <div className="card relative overflow-hidden">
         <div className="absolute bottom-12 right-3 z-10 flex items-center gap-1 rounded-lg border p-1"
              style={{ background: "var(--surface)", borderColor: "var(--border-2)", boxShadow: "var(--shadow)" }}>
@@ -108,7 +108,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
           ref={scroller}
           className="canvas overflow-auto"
           style={{
-            maxHeight: 560,
+            maxHeight: 600,
             maskImage: "linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%)",
             WebkitMaskImage: "linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%)",
           }}
@@ -178,7 +178,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t px-4 py-2 text-[11px]" style={{ color: "var(--text-3)" }}>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-5 py-2.5 text-[11px]" style={{ color: "var(--text-3)" }}>
           {[...new Set(g.nodes.filter((n) => !n.isolated).map((n) => n.role ?? "unset"))].sort().map((r) => (
             <span key={r} className="flex items-center gap-1.5">
               <span className="h-2.5 w-[3px] rounded-full" style={{ background: ROLE_COLOR[r] ?? "var(--border-2)" }} />
@@ -190,7 +190,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
       </div>
 
       <aside className="card self-start overflow-hidden">
-        <div className="flex items-center justify-between border-b px-3.5 py-2.5" style={{ background: "var(--surface-2)" }}>
+        <div className="flex items-center justify-between border-b px-4 py-3" style={{ background: "var(--surface-2)" }}>
           <span className="eyebrow">Selection</span>
           {sel && (
             <Link href={`${base}/c/${encodeURIComponent(sel.name)}`} className="flex items-center gap-1 text-[11.5px] hover:underline" style={{ color: "var(--accent)" }}>
@@ -199,7 +199,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
           )}
         </div>
         {sel ? (
-          <div className="px-3.5 py-3">
+          <div className="px-4 py-3.5">
             <div className="text-[13px] font-semibold leading-tight">{sel.name}</div>
             <div className="mt-1 flex flex-wrap gap-1.5">
               <span className="pill" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>{sel.native_type}</span>
@@ -216,13 +216,13 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
             </dl>
           </div>
         ) : (
-          <p className="px-3.5 py-3 text-[12px]" style={{ color: "var(--text-3)" }}>
+          <p className="px-4 py-3.5 text-[12px]" style={{ color: "var(--text-3)" }}>
             Hover a rule to trace it. Click to pin it.
           </p>
         )}
 
         {isolated.length > 0 && (
-          <div className="border-t px-3.5 py-3">
+          <div className="border-t px-4 py-3.5">
             <div className="eyebrow mb-1.5"><Term k="not_referenced">Not referenced</Term> · {isolated.length}</div>
             <div className="flex flex-wrap gap-1">
               {isolated.map((n) => (

@@ -41,27 +41,27 @@ export default function MatterPage() {
 
   if (err)
     return (
-      <main className="px-8 py-8">
+      <main className="mx-auto w-full max-w-[1560px] px-10 py-10">
         <p style={{ color: "var(--stop)" }}>{err}</p>
         <p className="mt-1" style={{ color: "var(--text-2)" }}>
           Is the read API running? <code className="mono">prompt-graph-api</code>
         </p>
       </main>
     );
-  if (!m) return <main className="px-8 py-8" style={{ color: "var(--text-3)" }}>Loading…</main>;
+  if (!m) return <main className="mx-auto w-full max-w-[1560px] px-10 py-10" style={{ color: "var(--text-3)" }}>Loading…</main>;
 
   const st = m.staleness;
   const stale = st.direct + st.transitive;
 
   return (
-    <main className="px-8 py-7">
+    <main className="mx-auto w-full max-w-[1560px] px-10 py-10">
       <PageHeader
         title={m.matter}
         description={m.objective}
         right={<LiveDot online={online} />}
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-9 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="Modules" value={m.table_count} icon={Layers} />
         <Stat label="Rules" value={m.column_count} icon={ListChecks} />
         <Stat termKey="never_run" label="Never run" value={st.never_run} tone={st.never_run ? "warn" : undefined} icon={CircleDashed} />
@@ -70,16 +70,16 @@ export default function MatterPage() {
         <Stat termKey="open_failures" label="Open failures" value={m.open_failures} tone={m.open_failures ? "stop" : undefined} icon={AlertTriangle} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_310px]">
         <section>
           <Panel title="Modules" icon={Layers}>
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b">
-                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">Module</th>
-                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">Review unit</th>
+                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">Module</th>
+                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">Review unit</th>
                   <th className="eyebrow mb-0 px-4 py-2.5 text-right font-semibold">Rules</th>
-                  <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">State</th>
+                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">State</th>
                   <th className="w-8" />
                 </tr>
               </thead>
@@ -88,7 +88,7 @@ export default function MatterPage() {
                   const s = t.staleness.direct + t.staleness.transitive;
                   return (
                     <tr key={t.table} className="rowlink border-b last:border-b-0">
-                      <td className="px-4 py-2.5 align-top">
+                      <td className="px-5 py-3.5 align-top">
                         <Link
                           href={`/m/${encodeURIComponent(m.matter)}/t/${encodeURIComponent(t.table)}`}
                           className="font-medium hover:underline"
@@ -96,11 +96,11 @@ export default function MatterPage() {
                           {t.table}
                         </Link>
                       </td>
-                      <td className="max-w-[420px] px-4 py-2.5 align-top text-[12.5px]" style={{ color: "var(--text-2)" }}>
+                      <td className="max-w-[440px] px-5 py-3.5 align-top text-[12.5px]" style={{ color: "var(--text-2)" }}>
                         <span className="line-clamp-2">{t.review_unit ?? "not stated"}</span>
                       </td>
-                      <td className="mono px-4 py-2.5 text-right align-top">{t.columns}</td>
-                      <td className="whitespace-nowrap px-4 py-2.5 align-top text-[12.5px]">
+                      <td className="mono px-5 py-3.5 text-right align-top">{t.columns}</td>
+                      <td className="whitespace-nowrap px-5 py-3.5 align-top text-[12.5px]">
                         {t.last_run ? (
                           s ? <span style={{ color: "var(--warn)" }}>{s} stale</span>
                             : <span style={{ color: "var(--ok)" }}>current</span>
@@ -118,9 +118,9 @@ export default function MatterPage() {
 
           {m.parameters.length > 0 && (
             <>
-              <div className="mt-6"><Panel title="Shared parameters" icon={Variable}>
+              <div className="mt-7"><Panel title="Shared parameters" icon={Variable}>
                 {m.parameters.map((p) => (
-                  <div key={p.name} className="flex items-baseline justify-between gap-3 border-b px-4 py-2 last:border-b-0">
+                  <div key={p.name} className="flex items-baseline justify-between gap-3 border-b px-5 py-2.5 last:border-b-0">
                     <span className="font-medium">{p.name}</span>
                     <span className="truncate text-[12.5px]" style={{ color: "var(--text-2)" }}>{p.value ?? "unresolved"}</span>
                     <span className="mono shrink-0 text-[11.5px]" style={{ color: "var(--text-3)" }}>{p.consumer_count} consumers</span>
@@ -134,7 +134,7 @@ export default function MatterPage() {
         <aside>
           <Panel title={`Activity · ${total}`} icon={Activity} bodyClassName="max-h-[68vh] overflow-y-auto">
             {events.map((e, i) => (
-              <div key={e.id} className="border-b px-4 py-2 last:border-b-0">
+              <div key={e.id} className="border-b px-5 py-2.5 last:border-b-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="flex min-w-0 items-baseline gap-1.5 text-[12.5px]">
                     {(() => {

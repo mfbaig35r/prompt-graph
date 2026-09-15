@@ -26,15 +26,15 @@ export default function ColumnPage() {
   useEffect(load, [load]);
   useLiveVersion(load);
 
-  if (err) return <main className="px-8 py-8" style={{ color: "var(--stop)" }}>{err}</main>;
-  if (!d) return <main className="px-8 py-8" style={{ color: "var(--text-3)" }}>Loading…</main>;
+  if (err) return <main className="mx-auto w-full max-w-[1560px] px-10 py-10" style={{ color: "var(--stop)" }}>{err}</main>;
+  if (!d) return <main className="mx-auto w-full max-w-[1560px] px-10 py-10" style={{ color: "var(--text-3)" }}>Loading…</main>;
 
   const base = `/m/${encodeURIComponent(matter)}`;
   const shown = d.history.find((h) => h.version === showVersion) ?? null;
   const text = shown ? shown.text : d.prompt_text;
 
   return (
-    <main className="px-8 py-7">
+    <main className="mx-auto w-full max-w-[1560px] px-10 py-10">
       <PageHeader
         crumbs={[
           { label: matter, href: base },
@@ -63,7 +63,7 @@ export default function ColumnPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
+      <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section>
           <div className="mb-2 flex items-center justify-between">
             <div className="eyebrow mb-0 flex items-center gap-1.5">
@@ -83,7 +83,7 @@ export default function ColumnPage() {
           </div>
           <Card className="overflow-hidden">
             <pre
-              className="mono overflow-x-auto px-4 py-3.5 text-[12px] leading-[1.65] whitespace-pre-wrap"
+              className="mono overflow-x-auto px-5 py-4 text-[12.5px] leading-[1.75] whitespace-pre-wrap"
               style={{ color: "var(--text)" }}
             >
               {text}
@@ -92,20 +92,20 @@ export default function ColumnPage() {
 
           {d.configured_options && d.configured_options.length > 0 && (
             <>
-              <Eyebrow icon={List} className="mt-6">Configured options</Eyebrow>
+              <Eyebrow icon={List} className="mt-8">Configured options</Eyebrow>
               <div className="flex flex-wrap gap-1.5">
                 {d.configured_options.map((o) => <Pill key={o}>{o}</Pill>)}
               </div>
             </>
           )}
 
-          <Eyebrow icon={History} className="mt-6">Version history · {d.history.length}</Eyebrow>
+          <Eyebrow icon={History} className="mt-8">Version history · {d.history.length}</Eyebrow>
           <Card className="overflow-hidden">
             {d.history.map((h) => (
               <button
                 key={h.version}
                 onClick={() => setShowVersion(h.is_current ? null : h.version)}
-                className="rowlink flex w-full items-baseline justify-between gap-3 border-b px-4 py-2 text-left last:border-b-0"
+                className="rowlink flex w-full items-baseline justify-between gap-3 border-b px-5 py-2.5 text-left last:border-b-0"
               >
                 <span className="flex items-baseline gap-2">
                   <span className="mono text-[12px] font-medium">{h.version}</span>
@@ -122,7 +122,7 @@ export default function ColumnPage() {
           </Card>
         </section>
 
-        <aside className="space-y-5">
+        <aside className="space-y-6">
           <div>
             <Eyebrow icon={ArrowDownLeft}>Depends on · {d.upstream.length}</Eyebrow>
             <Card className="overflow-hidden">
@@ -146,7 +146,7 @@ export default function ColumnPage() {
               <Eyebrow icon={Variable}>Parameters used</Eyebrow>
               <Card className="overflow-hidden">
                 {d.consumes_parameters.map((p, i) => (
-                  <div key={i} className="border-b px-4 py-2 last:border-b-0 text-[12.5px]">
+                  <div key={i} className="border-b px-5 py-2.5 last:border-b-0 text-[12.5px]">
                     <div className="font-medium">{p.name}</div>
                     <div style={{ color: "var(--text-3)" }}>{p.value ?? "unresolved"}</div>
                   </div>
@@ -175,7 +175,7 @@ export default function ColumnPage() {
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="px-4 py-2.5 text-[12.5px]" style={{ color: "var(--text-3)" }}>{children}</div>;
+  return <div className="px-5 py-3 text-[12.5px]" style={{ color: "var(--text-3)" }}>{children}</div>;
 }
 function Row({ k, v }: { k: string; v: number }) {
   return (
@@ -189,7 +189,7 @@ function DepRow({ base, dep }: { base: string; dep: { table: string; column: str
   return (
     <Link
       href={`${base}/t/${encodeURIComponent(dep.table)}/c/${encodeURIComponent(dep.column)}`}
-      className="rowlink block border-b px-4 py-2 last:border-b-0"
+      className="rowlink block border-b px-5 py-2.5 last:border-b-0"
     >
       <div className="text-[12.5px] font-medium">{dep.column}</div>
       <div className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
