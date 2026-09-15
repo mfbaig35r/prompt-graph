@@ -120,14 +120,6 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
           >
             <div style={{ width, height, transform: `scale(${zoom})`, transformOrigin: "top left" }} className="relative">
               <svg width={width} height={height} className="pointer-events-none absolute inset-0">
-                <defs>
-                  <marker id="ah" markerWidth="7" markerHeight="7" refX="6.2" refY="3" orient="auto">
-                    <path d="M0,0 L6,3 L0,6 z" fill="var(--edge)" />
-                  </marker>
-                  <marker id="ah-on" markerWidth="7" markerHeight="7" refX="6.2" refY="3" orient="auto">
-                    <path d="M0,0 L6,3 L0,6 z" fill="var(--accent)" />
-                  </marker>
-                </defs>
                 {g.edges.map((e, i) => {
                   const a = placed.get(e.from), b = placed.get(e.to);
                   if (!a || !b) return null;
@@ -142,7 +134,6 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
                       fill="none"
                       stroke={on ? "var(--accent)" : "var(--edge)"}
                       strokeWidth={on ? 1.9 : 1.2}
-                      markerEnd={on ? "url(#ah-on)" : "url(#ah)"}
                       opacity={focus === null || on ? 1 : 0.15}
                     />
                   );
