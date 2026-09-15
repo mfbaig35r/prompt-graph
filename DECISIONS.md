@@ -254,6 +254,29 @@ skill's Orchestrate reference. The Review Tables API cannot read column definiti
 (verified 2026-09), so manual ingest stays primary; it can read row results, so a result
 importer is the next P4 candidate.
 
+## Contract-review extension (proposed 2026-09-15)
+
+Full delta in `requirements/prompt-graph-contract-review.md`. Nothing is built. Migration 3
+is written and verified against a copy of a real database, but it is not in `MIGRATIONS`.
+
+**One schema carries both ontologies, rather than a shared governance core plus two domain
+packages.** Everything the extension adds except `rule_position` is governance metadata any
+ontology would want: ownership, review cadence, severity, applicability, per-result facets.
+`rule_position` is the exception. Storing preferred, acceptable, and unacceptable positions
+asserts that a rule is a negotiation object, which an M&A extraction column is not and never
+will be, so it is the point where the schema stops being neutral about legal content.
+
+Kept as one schema anyway. A nullable child table costs a diligence matter nothing: no rows,
+no joins on any existing query path, and the migration is additive. Splitting now means
+guessing where the seam runs from one real user; splitting later means drawing it from two.
+The cost of being wrong is asymmetric in the same direction, because an unused table is cheap
+while a premature package boundary is expensive to move once tools and tests are written
+across it.
+
+Revisit when a second ontology needs a field that *contradicts* the first rather than merely
+extending it. A shared column whose vocabulary has to mean different things per domain is the
+signal, not table count.
+
 ## §12 open questions: defaults chosen
 
 1. **Deployment and concurrency.** stdio-local, single database file, WAL mode. The
