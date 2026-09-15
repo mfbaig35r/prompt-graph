@@ -130,8 +130,23 @@ question about where that file goes. Decide which database first.
 - **Project Harbor** (`prompt-graph --db /tmp/harbor.db --seed-demo`) is fictional and safe to
   copy anywhere. It is also the only database with recorded runs, so the evaluation views carry
   data there and read as empty against a prompt library that has never been run.
+- The **prompt library** is derived, not source: the markdown in `diligence-kernel` is the
+  source of truth and `scripts/rebuild_corpus.sh` reconstructs the database from it. Rebuild it
+  rather than copying a `.db` around.
 - A **real matter** is client data. Copying it to another machine is a data-handling decision,
   not a setup step.
+
+```bash
+scripts/rebuild_corpus.sh                    # into $PROMPT_GRAPH_DB or the default path
+scripts/rebuild_corpus.sh --db /tmp/demo.db  # into a throwaway file
+scripts/rebuild_corpus.sh --dry-run          # parse and report, write nothing
+```
+
+It finds `diligence-kernel` as a sibling checkout, at `$DILIGENCE_KERNEL`, or clones it into
+`~/.cache/prompt-graph/`, creates the matter if it is absent, and replays the markdown through
+`table_ingest`. Re-running is safe: versioning is by content, so unchanged prompts are left
+alone and only genuinely changed ones get a new minor version. It runs in this repo's venv;
+the kernel's heavier extras are not imported on this path.
 
 **Run it on the other machine.** The portable option: everything stays local to whoever is
 looking at it.
