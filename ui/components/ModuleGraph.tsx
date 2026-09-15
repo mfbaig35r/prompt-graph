@@ -119,26 +119,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
             onClick={() => setPicked(null)}
           >
             <div style={{ width, height, transform: `scale(${zoom})`, transformOrigin: "top left" }} className="relative">
-              <svg width={width} height={height} className="pointer-events-none absolute inset-0">
-                {g.edges.map((e, i) => {
-                  const a = placed.get(e.from), b = placed.get(e.to);
-                  if (!a || !b) return null;
-                  const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
-                  const x2 = b.x, y2 = b.y + NODE_H / 2;
-                  const dx = Math.max(30, (x2 - x1) / 2);
-                  const on = focus !== null && (e.from === focus || e.to === focus);
-                  return (
-                    <path
-                      key={i}
-                      d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
-                      fill="none"
-                      stroke={on ? "var(--accent)" : "var(--edge)"}
-                      strokeWidth={on ? 1.9 : 1.2}
-                      opacity={focus === null || on ? 1 : 0.15}
-                    />
-                  );
-                })}
-              </svg>
+              <EdgeLayer g={g} placed={placed} focus={focus} width={width} height={height} highlighted={false} />
 
               {[...placed.values()].map(({ x, y, n }) => {
                 const dim = connected !== null && !connected.has(n.id);
@@ -174,6 +155,11 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
                   </button>
                 );
               })}
+
+              {/* Highlighted edges are re-drawn above the nodes. Behind them, a line crossing a
+                  dimmed box is overlaid by that box's background and appears to change tone
+                  halfway along, which makes a traced path hard to follow. */}
+              <EdgeLayer g={g} placed={placed} focus={focus} width={width} height={height} highlighted />
             </div>
           </div>
         </div>
@@ -235,6 +221,49 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
         )}
       </aside>
     </div>
+  );
+}
+
+function EdgeLayer({
+  g, placed, focus, width, height, highlighted,
+}: {
+  g: TableGraph;
+  placed: Map<number, { x: number; y: number }>;
+  focus: number | null;
+  width: number;
+  height: number;
+  highlighted: boolean;
+}) {
+  const edges = g.edges.filter((e) => {
+    const on = focus !== null && (e.from === focus || e.to === focus);
+    return highlighted ? on : !on;
+  });
+  if (!edges.length) return null;
+  return (
+    <svg
+      width={width}
+      height={height}
+      className="pointer-events-none absolute inset-0"
+      style={highlighted ? { zIndex: 5 } : undefined}
+    >
+      {edges.map((e, i) => {
+        const a = placed.get(e.from), b = placed.get(e.to);
+        if (!a || !b) return null;
+        const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
+        const x2 = b.x, y2 = b.y + NODE_H / 2;
+        const dx = Math.max(30, (x2 - x1) / 2);
+        return (
+          <path
+            key={i}
+            d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
+            fill="none"
+            stroke={highlighted ? "var(--accent)" : "var(--edge)"}
+            strokeWidth={highlighted ? 1.9 : 1.2}
+            opacity={highlighted || focus === null ? 1 : 0.15}
+          />
+        );
+      })}
+    </svg>
   );
 }
 
