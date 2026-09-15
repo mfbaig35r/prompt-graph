@@ -102,7 +102,7 @@ function DivergenceCard({
               {x.shared_options.map((o) => <Pill key={o} tone="ok">{o}</Pill>)}
             </div>
           ) : (
-            <div className="border-b px-5 py-2.5 text-[12px]" style={{ background: "var(--surface-2)", color: "var(--text-3)" }}>
+            <div className="border-b px-5 py-2.5 text-[12.5px]" style={{ background: "var(--surface-2)", color: "var(--text-3)" }}>
               {x.observation}
             </div>
           )}
@@ -118,7 +118,7 @@ function DivergenceCard({
                 {(mm.divergent_options ?? []).length > 0 ? (
                   mm.divergent_options!.map((o) => <Pill key={o} tone="stop">{o}</Pill>)
                 ) : (
-                  <span className="text-[12px]" style={{ color: "var(--text-3)" }}>
+                  <span className="text-[12.5px]" style={{ color: "var(--text-3)" }}>
                     {mm.options ? "no options unique to this module" : "differs in fallback or wording, not options"}
                   </span>
                 )}

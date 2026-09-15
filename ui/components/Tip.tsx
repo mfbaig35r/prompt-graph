@@ -54,7 +54,7 @@ export function Term({
       {box && (
         <span
           role="tooltip"
-          className="pointer-events-none fixed z-50 block w-[280px] rounded-lg border px-3 py-2 text-[12px] leading-[1.5]"
+          className="pointer-events-none fixed z-50 block w-[280px] rounded-lg border px-3 py-2 text-[12.5px] leading-[1.5]"
           style={{
             left: box.x,
             top: box.y,

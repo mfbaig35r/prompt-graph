@@ -146,10 +146,10 @@ export default function MatterPage() {
                       <span className="font-medium">{e.entity_name ?? e.entity_type}</span>
                     </span>
                   </span>
-                  <span className="mono shrink-0 text-[11px]" style={{ color: "var(--text-3)" }}>{ago(e.at)}</span>
+                  <span className="mono shrink-0 text-[11.5px]" style={{ color: "var(--text-3)" }}>{ago(e.at)}</span>
                 </div>
                 {e.actor && e.actor !== events[i - 1]?.actor && (
-                  <div className="mt-0.5 text-[11px]" style={{ color: "var(--text-3)" }}>{e.actor}</div>
+                  <div className="mt-0.5 text-[11.5px]" style={{ color: "var(--text-3)" }}>{e.actor}</div>
                 )}
               </div>
             ))}

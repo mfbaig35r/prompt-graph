@@ -65,7 +65,7 @@ export function Stat({
 
 export function Crumbs({ items }: { items: { label: string; href?: string }[] }) {
   return (
-    <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-[12px]" style={{ color: "var(--text-3)" }}>
+    <nav className="mb-4 flex flex-wrap items-center gap-1.5 text-[12.5px]" style={{ color: "var(--text-3)" }}>
       {items.map((it, i) => (
         <span key={i} className="flex items-center gap-1.5">
           {i > 0 && <ChevronRight size={12} style={{ color: "var(--border-2)" }} />}
@@ -100,7 +100,7 @@ export function PageHeader({
       {crumbs && <Crumbs items={crumbs} />}
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
         <div className="min-w-0">
-          <h1 className="text-[21px] font-semibold tracking-[-0.015em]">{title}</h1>
+          <h1 className="text-[20px] font-semibold tracking-[-0.015em]">{title}</h1>
           {description && (
             <p className="mt-2.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
               {description}

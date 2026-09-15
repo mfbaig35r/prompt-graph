@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Term } from "@/components/Tip";
 import { useLiveVersion } from "@/components/Live";
-import {Card, Eyebrow, PageHeader, Pill, statusTone} from "@/components/ui";
+import { PageHeader, Panel, Pill, statusTone } from "@/components/ui";
 import {
   ArrowDownLeft, ArrowUpRight, FileText, FlaskConical, History, List, Undo2, Variable,
 } from "lucide-react";
@@ -65,42 +65,42 @@ export default function ColumnPage() {
 
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="eyebrow mb-0 flex items-center gap-1.5">
-              <FileText size={12} strokeWidth={2.25} />
-              Prompt {shown ? `· ${shown.version}` : "· current"}
-            </div>
-            {shown && (
-              <button
-                onClick={() => setShowVersion(null)}
-                className="flex items-center gap-1 text-[12px] hover:underline"
-                style={{ color: "var(--accent)" }}
-              >
-                <Undo2 size={12} />
-                back to current
-              </button>
-            )}
-          </div>
-          <Card className="overflow-hidden">
+          <Panel
+            title={`Prompt ${shown ? `· ${shown.version}` : "· current"}`}
+            icon={FileText}
+            right={
+              shown && (
+                <button
+                  onClick={() => setShowVersion(null)}
+                  className="flex items-center gap-1 text-[12.5px] hover:underline"
+                  style={{ color: "var(--accent)" }}
+                >
+                  <Undo2 size={12} />
+                  back to current
+                </button>
+              )
+            }
+          >
             <pre
               className="mono overflow-x-auto px-5 py-4 text-[12.5px] leading-[1.75] whitespace-pre-wrap"
               style={{ color: "var(--text)" }}
             >
               {text}
             </pre>
-          </Card>
+          </Panel>
 
           {d.configured_options && d.configured_options.length > 0 && (
             <>
-              <Eyebrow icon={List} className="mt-8">Configured options</Eyebrow>
-              <div className="flex flex-wrap gap-1.5">
-                {d.configured_options.map((o) => <Pill key={o}>{o}</Pill>)}
+              <div className="mt-8">
+                <Panel title="Configured options" icon={List} bodyClassName="flex flex-wrap gap-1.5 px-5 py-3.5">
+                  {d.configured_options.map((o) => <Pill key={o}>{o}</Pill>)}
+                </Panel>
               </div>
             </>
           )}
 
-          <Eyebrow icon={History} className="mt-8">Version history · {d.history.length}</Eyebrow>
-          <Card className="overflow-hidden">
+          <div className="mt-8">
+          <Panel title={`Version history · ${d.history.length}`} icon={History}>
             {d.history.map((h) => (
               <button
                 key={h.version}
@@ -108,55 +108,52 @@ export default function ColumnPage() {
                 className="rowlink flex w-full items-baseline justify-between gap-3 border-b px-5 py-2.5 text-left last:border-b-0"
               >
                 <span className="flex items-baseline gap-2">
-                  <span className="mono text-[12px] font-medium">{h.version}</span>
+                  <span className="mono text-[12.5px] font-medium">{h.version}</span>
                   {h.is_current && <Pill tone="ok">current</Pill>}
                   <span className="text-[12.5px]" style={{ color: "var(--text-2)" }}>
                     {h.change_note ?? "no note"}
                   </span>
                 </span>
-                <span className="mono shrink-0 text-[11px]" style={{ color: "var(--text-3)" }}>
+                <span className="mono shrink-0 text-[11.5px]" style={{ color: "var(--text-3)" }}>
                   {h.char_count.toLocaleString()}
                 </span>
               </button>
             ))}
-          </Card>
+          </Panel>
+          </div>
         </section>
 
         <aside className="space-y-6">
           <div>
-            <Eyebrow icon={ArrowDownLeft}>Depends on · {d.upstream.length}</Eyebrow>
-            <Card className="overflow-hidden">
+            <Panel title={`Depends on · ${d.upstream.length}`} icon={ArrowDownLeft}>
               {d.upstream.length === 0 && <Empty>Nothing upstream.</Empty>}
               {d.upstream.map((u, i) => (
                 <DepRow key={i} base={base} dep={u} />
               ))}
-            </Card>
+            </Panel>
           </div>
           <div>
-            <Eyebrow icon={ArrowUpRight}>Feeds · {d.downstream.length}</Eyebrow>
-            <Card className="overflow-hidden">
+            <Panel title={`Feeds · ${d.downstream.length}`} icon={ArrowUpRight}>
               {d.downstream.length === 0 && <Empty>Nothing downstream.</Empty>}
               {d.downstream.map((u, i) => (
                 <DepRow key={i} base={base} dep={u} />
               ))}
-            </Card>
+            </Panel>
           </div>
           {d.consumes_parameters.length > 0 && (
             <div>
-              <Eyebrow icon={Variable}>Parameters used</Eyebrow>
-              <Card className="overflow-hidden">
+              <Panel title="Parameters used" icon={Variable}>
                 {d.consumes_parameters.map((p, i) => (
                   <div key={i} className="border-b px-5 py-2.5 last:border-b-0 text-[12.5px]">
                     <div className="font-medium">{p.name}</div>
                     <div style={{ color: "var(--text-3)" }}>{p.value ?? "unresolved"}</div>
                   </div>
                 ))}
-              </Card>
+              </Panel>
             </div>
           )}
           <div>
-            <Eyebrow icon={FlaskConical}>Evaluation</Eyebrow>
-            <Card className="px-4 py-3 text-[12.5px]">
+            <Panel title="Evaluation" icon={FlaskConical} bodyClassName="px-5 py-3.5 text-[12.5px]">
               {d.evaluation.runs === 0 ? (
                 <span style={{ color: "var(--text-3)" }}>Never run.</span>
               ) : (
@@ -166,7 +163,7 @@ export default function ColumnPage() {
                   <Row k="Open failures" v={d.evaluation.open_failures} />
                 </div>
               )}
-            </Card>
+            </Panel>
           </div>
         </aside>
       </div>

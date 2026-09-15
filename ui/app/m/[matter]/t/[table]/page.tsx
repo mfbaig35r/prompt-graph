@@ -115,7 +115,7 @@ export default function TablePage() {
                         {c.name}
                       </Link>
                       {c.purpose && (
-                        <div className="mt-0.5 line-clamp-1 max-w-[440px] text-[12px]" style={{ color: "var(--text-3)" }}>
+                        <div className="mt-0.5 line-clamp-1 max-w-[440px] text-[12.5px]" style={{ color: "var(--text-3)" }}>
                           {c.purpose}
                         </div>
                       )}
@@ -125,7 +125,7 @@ export default function TablePage() {
                       {c.role ? <Term k={c.role}>{c.role}</Term> : "–"}
                     </td>
                     <td className="px-5 py-3.5 align-top"><Term k={c.status} underline={false}><Pill tone={statusTone(c.status)}>{c.status}</Pill></Term></td>
-                    <td className="mono px-5 py-3.5 text-right align-top text-[12px]" style={{ color: "var(--text-2)" }}>{c.version}</td>
+                    <td className="mono px-5 py-3.5 text-right align-top text-[12.5px]" style={{ color: "var(--text-2)" }}>{c.version}</td>
                     <td className="w-8 pr-3 align-middle"><GoChevron /></td>
                   </tr>
                 ))}

@@ -148,7 +148,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
                     }
                   >
                     <div className="truncate pt-[5px] text-[11.5px] font-medium leading-tight">{n.name}</div>
-                    <div className="flex items-center gap-1.5 text-[9.5px] uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+                    <div className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
                       <span className="truncate">{n.native_type}</span>
                       {n.degree > 3 && <span className="mono ml-auto shrink-0 normal-case">{n.degree}</span>}
                     </div>
@@ -164,7 +164,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-5 py-2.5 text-[11px]" style={{ color: "var(--text-3)" }}>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-5 py-2.5 text-[11.5px]" style={{ color: "var(--text-3)" }}>
           {[...new Set(g.nodes.filter((n) => !n.isolated).map((n) => n.role ?? "unset"))].sort().map((r) => (
             <span key={r} className="flex items-center gap-1.5">
               <span className="h-2.5 w-[3px] rounded-full" style={{ background: ROLE_COLOR[r] ?? "var(--border-2)" }} />
@@ -195,14 +195,14 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
                 </span>
               )}
             </div>
-            <dl className="mt-3 space-y-1.5 text-[12px]">
+            <dl className="mt-3 space-y-1.5 text-[12.5px]">
               <Row k="Depends on" v={selUp} />
               <Row k="Feeds" v={selDown} />
               <Row k="Level" v={sel.level + 1} />
             </dl>
           </div>
         ) : (
-          <p className="px-4 py-3.5 text-[12px]" style={{ color: "var(--text-3)" }}>
+          <p className="px-4 py-3.5 text-[12.5px]" style={{ color: "var(--text-3)" }}>
             Hover a rule to trace it. Click to pin it.
           </p>
         )}
