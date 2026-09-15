@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { lookup } from "@/lib/glossary";
 
-/** Fixed-position tooltip. Rendered against the viewport rather than inside the flow, because
- *  most of these terms sit in `overflow-x-auto` tables where an absolute popover gets clipped. */
+/** Fixed-position tooltip, portalled to document.body.
+ *
+ *  Two reasons it leaves the flow. Most of these terms sit in `overflow-x-auto` containers where
+ *  an absolute popover gets clipped. And rendered inline it inherited from whatever wrapped it:
+ *  `.mono` gave it a monospace face, `.eyebrow` gave it block capitals and letter-spacing. Each
+ *  was patched with another reset as it surfaced. Portalling to body ends that class of bug
+ *  outright, since the only thing left to inherit from is the base document style. */
 export function Term({
   k,
   children,
@@ -65,31 +71,29 @@ export function Term({
       >
         {children}
       </span>
-      {box && (
-        <span
-          role="tooltip"
-          className="pointer-events-none fixed z-50 block w-[280px] rounded-lg border px-3 py-2 text-[12.5px] leading-[1.5]"
-          style={{
-            left: box.x,
-            top: box.y,
-            transform: `translate(-50%, ${box.above ? "-100%" : "0"})`,
-            // Never inherit: these terms sit inside .mono code spans and inside .eyebrow,
-            // which uppercases and letter-spaces. The `font` shorthand covers neither of those.
-            font: '400 12px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif',
-            textTransform: "none",
-            letterSpacing: "normal",
-            background: "var(--surface)",
-            borderColor: "var(--border-2)",
-            color: "var(--text-2)",
-            boxShadow: "0 4px 16px rgba(16,24,40,0.12)",
-          }}
-        >
-          <span className="mb-0.5 block font-semibold" style={{ color: "var(--text)" }}>
-            {entry.title}
-          </span>
-          {entry.body}
-        </span>
-      )}
+      {box &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <span
+            role="tooltip"
+            className="pointer-events-none fixed z-50 block w-[280px] rounded-lg border px-3 py-2 text-[12.5px] leading-[1.5]"
+            style={{
+              left: box.x,
+              top: box.y,
+              transform: `translate(-50%, ${box.above ? "-100%" : "0"})`,
+              background: "var(--surface)",
+              borderColor: "var(--border-2)",
+              color: "var(--text-2)",
+              boxShadow: "0 4px 16px rgba(16,24,40,0.12)",
+            }}
+          >
+            <span className="mb-0.5 block font-semibold" style={{ color: "var(--text)" }}>
+              {entry.title}
+            </span>
+            {entry.body}
+          </span>,
+          document.body,
+        )}
     </>
   );
 }
