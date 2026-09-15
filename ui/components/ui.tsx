@@ -84,6 +84,87 @@ export function GoChevron() {
   return <ChevronRight size={13} style={{ color: "var(--text-3)" }} className="shrink-0" />;
 }
 
+export function PageHeader({
+  title,
+  description,
+  right,
+  crumbs,
+}: {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  right?: React.ReactNode;
+  crumbs?: { label: string; href?: string }[];
+}) {
+  return (
+    <div className="mb-6">
+      {crumbs && <Crumbs items={crumbs} />}
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-[21px] font-semibold tracking-[-0.015em]">{title}</h1>
+          {description && (
+            <p className="mt-1 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
+              {description}
+            </p>
+          )}
+        </div>
+        {right && <div className="flex shrink-0 flex-wrap items-center gap-2">{right}</div>}
+      </div>
+    </div>
+  );
+}
+
+export function Panel({
+  title,
+  right,
+  children,
+  className = "",
+  bodyClassName = "",
+  icon: Icon,
+}: {
+  title: React.ReactNode;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  icon?: React.ComponentType<{ size?: number | string; strokeWidth?: number | string }>;
+}) {
+  return (
+    <section className={`card overflow-hidden ${className}`}>
+      <div
+        className="flex items-center justify-between gap-3 border-b px-4 py-2.5"
+        style={{ background: "var(--surface-2)" }}
+      >
+        <span className="eyebrow flex items-center gap-1.5">
+          {Icon && <Icon size={12} strokeWidth={2.25} />}
+          {title}
+        </span>
+        {right}
+      </div>
+      <div className={bodyClassName}>{children}</div>
+    </section>
+  );
+}
+
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="seg">
+      {options.map((o) => (
+        <button key={o.value} data-on={o.value === value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function statusTone(s: string) {
   return s === "verified" ? "ok" : s === "testing" ? "warn" : s === "retired" ? "stop" : "neutral";
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { LiveDot, useLiveVersion } from "@/components/Live";
-import { Card, Eyebrow, GoChevron, Stat } from "@/components/ui";
+import {GoChevron, PageHeader, Panel, Stat} from "@/components/ui";
 import {
   Activity, AlertTriangle, CircleCheck, CircleDashed, Clock, Layers, ListChecks, Variable,
   Plus, Pencil, GitCommitVertical, Circle,
@@ -55,15 +55,11 @@ export default function MatterPage() {
 
   return (
     <main className="px-8 py-7">
-      <div className="mb-6 flex items-start justify-between gap-6">
-        <div className="min-w-0">
-          <h1 className="text-[20px] font-semibold tracking-[-0.01em]">{m.matter}</h1>
-          {m.objective && (
-            <p className="mt-1.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>{m.objective}</p>
-          )}
-        </div>
-        <LiveDot online={online} />
-      </div>
+      <PageHeader
+        title={m.matter}
+        description={m.objective}
+        right={<LiveDot online={online} />}
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="Modules" value={m.table_count} icon={Layers} />
@@ -76,11 +72,10 @@ export default function MatterPage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section>
-          <Eyebrow icon={Layers}>Modules</Eyebrow>
-          <Card className="overflow-hidden">
+          <Panel title="Modules" icon={Layers}>
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b" style={{ background: "var(--surface-2)" }}>
+                <tr className="border-b">
                   <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">Module</th>
                   <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">Review unit</th>
                   <th className="eyebrow mb-0 px-4 py-2.5 text-right font-semibold">Rules</th>
@@ -119,12 +114,11 @@ export default function MatterPage() {
                 })}
               </tbody>
             </table>
-          </Card>
+          </Panel>
 
           {m.parameters.length > 0 && (
             <>
-              <Eyebrow icon={Variable} className="mt-6">Shared parameters</Eyebrow>
-              <Card className="overflow-hidden">
+              <div className="mt-6"><Panel title="Shared parameters" icon={Variable}>
                 {m.parameters.map((p) => (
                   <div key={p.name} className="flex items-baseline justify-between gap-3 border-b px-4 py-2 last:border-b-0">
                     <span className="font-medium">{p.name}</span>
@@ -132,14 +126,13 @@ export default function MatterPage() {
                     <span className="mono shrink-0 text-[11.5px]" style={{ color: "var(--text-3)" }}>{p.consumer_count} consumers</span>
                   </div>
                 ))}
-              </Card>
+              </Panel></div>
             </>
           )}
         </section>
 
         <aside>
-          <Eyebrow icon={Activity}>Activity · {total}</Eyebrow>
-          <Card className="max-h-[68vh] overflow-y-auto">
+          <Panel title={`Activity · ${total}`} icon={Activity} bodyClassName="max-h-[68vh] overflow-y-auto">
             {events.map((e, i) => (
               <div key={e.id} className="border-b px-4 py-2 last:border-b-0">
                 <div className="flex items-baseline justify-between gap-2">
@@ -160,7 +153,7 @@ export default function MatterPage() {
                 )}
               </div>
             ))}
-          </Card>
+          </Panel>
         </aside>
       </div>
     </main>

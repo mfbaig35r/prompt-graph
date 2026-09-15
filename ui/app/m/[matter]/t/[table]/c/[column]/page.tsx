@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Term } from "@/components/Tip";
 import { useLiveVersion } from "@/components/Live";
-import { Card, Crumbs, Eyebrow, Pill, statusTone } from "@/components/ui";
+import {Card, Eyebrow, PageHeader, Pill, statusTone} from "@/components/ui";
 import {
   ArrowDownLeft, ArrowUpRight, FileText, FlaskConical, History, List, Undo2, Variable,
 } from "lucide-react";
@@ -35,35 +35,33 @@ export default function ColumnPage() {
 
   return (
     <main className="px-8 py-7">
-      <Crumbs
-        items={[
+      <PageHeader
+        crumbs={[
           { label: matter, href: base },
           { label: table, href: `${base}/t/${encodeURIComponent(table)}` },
           { label: d.name },
         ]}
+        title={d.name}
+        description={d.purpose}
+        right={
+          <>
+            <Term k={d.native_type} underline={false}><Pill tone="accent">{d.native_type}</Pill></Term>
+            <Term k={d.status} underline={false}><Pill tone={statusTone(d.status)}>{d.status}</Pill></Term>
+            {d.role && <Term k={d.role} underline={false}><Pill>{d.role}</Pill></Term>}
+            <Term
+              k={d.staleness.state === "direct" ? "stale_direct" : d.staleness.state === "transitive" ? "stale_transitive" : d.staleness.state}
+              underline={false}
+            >
+              <Pill tone={d.staleness.state === "current" ? "ok" : d.staleness.state === "never_run" ? "neutral" : "warn"}>
+                {d.staleness.state.replace("_", " ")}
+              </Pill>
+            </Term>
+            <span className="mono text-[11.5px]" style={{ color: "var(--text-3)" }}>
+              {d.version} · {d.char_count.toLocaleString()} chars
+            </span>
+          </>
+        }
       />
-      <div className="mb-5">
-        <h1 className="text-[19px] font-semibold tracking-[-0.01em]">{d.name}</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <Term k={d.native_type} underline={false}><Pill tone="accent">{d.native_type}</Pill></Term>
-          <Term k={d.status} underline={false}><Pill tone={statusTone(d.status)}>{d.status}</Pill></Term>
-          {d.role && <Term k={d.role} underline={false}><Pill>{d.role}</Pill></Term>}
-          <Term
-            k={d.staleness.state === "direct" ? "stale_direct" : d.staleness.state === "transitive" ? "stale_transitive" : d.staleness.state}
-            underline={false}
-          >
-            <Pill tone={d.staleness.state === "current" ? "ok" : d.staleness.state === "never_run" ? "neutral" : "warn"}>
-              {d.staleness.state.replace("_", " ")}
-            </Pill>
-          </Term>
-          <span className="mono text-[11.5px]" style={{ color: "var(--text-3)" }}>
-            {d.version} · {d.char_count.toLocaleString()} chars
-          </span>
-        </div>
-        {d.purpose && (
-          <p className="mt-2.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>{d.purpose}</p>
-        )}
-      </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
         <section>

@@ -1,53 +1,64 @@
 @import "tailwindcss";
 
+/* Dark by default. Light is opt-in via the toggle, not the OS, so a demo looks the same
+   on any machine. */
 :root {
+  --bg: #0e1520;
+  --bg-2: #0a111a;
+  --rail: #090f17;
+  --canvas: #0a1017;
+  --surface: #141d2a;
+  --surface-2: #19232f;
+  --border: #223041;
+  --border-2: #2e3f52;
+  --edge: #3a4c61;
+  --text: #e7eef7;
+  --text-2: #93a6bd;
+  --text-3: #62778f;
+  --accent: #22d3ee;
+  --accent-ink: #062330;
+  --accent-soft: #0d2b38;
+  --ok: #45d6a4;
+  --ok-soft: #0d2b24;
+  --warn: #e0a84b;
+  --warn-soft: #2e2314;
+  --stop: #f07a72;
+  --stop-soft: #331b1a;
+  --violet: #a78bfa;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="light"] {
   --bg: #f6f7f9;
+  --bg-2: #eef1f5;
+  --rail: #0e1520;
+  --canvas: #f2f5f8;
   --surface: #ffffff;
-  --surface-2: #fafbfc;
-  --border: #e6e8ec;
-  --border-2: #d6d9df;
-  --edge: #b9c0cc;
+  --surface-2: #f7f9fb;
+  --border: #e3e7ee;
+  --border-2: #cdd5e0;
+  --edge: #b6c0ce;
   --text: #0e1521;
   --text-2: #4d5768;
   --text-3: #8b94a3;
-  --accent: #4f46e5;
-  --accent-soft: #eef0fe;
+  --accent: #0e8fa8;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2f4f8;
   --ok: #0f7b5f;
   --ok-soft: #e6f4ef;
   --warn: #9a6207;
   --warn-soft: #fdf3e0;
   --stop: #b4342a;
   --stop-soft: #fceceb;
+  --violet: #6d51c9;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0d1117;
-    --surface: #151a22;
-    --surface-2: #1a2029;
-    --border: #252c37;
-    --border-2: #333c4a;
-    --edge: #46525f;
-    --text: #e8ebf0;
-    --text-2: #9aa4b4;
-    --text-3: #68727f;
-    --accent: #8b87f5;
-    --accent-soft: #221f3d;
-    --ok: #4ec09a;
-    --ok-soft: #10261f;
-    --warn: #d9a441;
-    --warn-soft: #2a2113;
-    --stop: #e8837a;
-    --stop-soft: #2d1818;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
 }
 
 * { border-color: var(--border); }
 
+html, body { background: var(--bg); }
+
 body {
-  background: var(--bg);
   color: var(--text);
   font-family: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
   font-size: 13.5px;
@@ -61,24 +72,68 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: var(--shadow);
 }
 
 .pill {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 1px 7px; border-radius: 999px;
+  padding: 1px 8px; border-radius: 999px;
   font-size: 11px; font-weight: 500; letter-spacing: 0.01em;
   white-space: nowrap;
 }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 11px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 500; white-space: nowrap;
+  border: 1px solid var(--border-2); color: var(--text-2);
+  background: var(--surface);
+  transition: background 90ms ease, color 90ms ease, border-color 90ms ease;
+}
+.btn:hover { background: var(--surface-2); color: var(--text); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.08); color: var(--accent-ink); }
+
+.seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); }
+.seg > button {
+  height: 26px; padding: 0 11px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; color: var(--text-2);
+  transition: background 90ms ease, color 90ms ease;
+}
+.seg > button:hover { color: var(--text); }
+.seg > button[data-on="true"] { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 
 .rowlink { transition: background 90ms ease; }
 .rowlink:hover { background: var(--surface-2); }
 
 .eyebrow {
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--text-3);
+}
+
+.navitem {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 10px; border-radius: 7px;
+  font-size: 12.5px; color: #8fa3bb;
+  transition: background 90ms ease, color 90ms ease;
+}
+.navitem:hover { background: rgba(255,255,255,0.045); color: #e7eef7; }
+.navitem[data-on="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+
+/* The graph canvas: a faint grid, like the reference, so the plane reads as a surface. */
+.canvas {
+  background-color: var(--canvas);
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.032) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.032) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+:root[data-theme="light"] .canvas {
+  background-image:
+    linear-gradient(to right, rgba(16,24,40,0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(16,24,40,0.05) 1px, transparent 1px);
 }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 ::-webkit-scrollbar-track { background: transparent; }

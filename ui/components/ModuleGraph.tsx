@@ -1,58 +1,59 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import { Term } from "@/components/Tip";
 import { GLOSSARY } from "@/lib/glossary";
 import type { TableGraph } from "@/lib/api";
 
-const NODE_W = 188;
-const NODE_H = 26;
-const ROW_H = 34;
-const COL_GAP = 96;
-const PAD = 8;
+const NODE_W = 184;
+const NODE_H = 40;
+const ROW_H = 52;
+const COL_GAP = 104;
+const PAD = 18;
+const PAD_BOTTOM = 34;
 
 const ROLE_COLOR: Record<string, string> = {
   orientation: "var(--accent)",
   extraction: "var(--ok)",
   validation: "var(--warn)",
-  reconciliation: "#8a63d2",
+  reconciliation: "var(--violet)",
   human_review: "var(--stop)",
 };
 
 export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const scroller = useRef<HTMLDivElement>(null);
+
+  const focus = hover ?? picked;
 
   const { placed, width, height, isolated } = useMemo(() => {
     const linked = g.nodes.filter((n) => !n.isolated);
     const isolated = g.nodes.filter((n) => n.isolated);
     const byLevel = new Map<number, typeof linked>();
-    for (const n of linked) {
-      const a = byLevel.get(n.level) ?? [];
-      a.push(n);
-      byLevel.set(n.level, a);
-    }
+    for (const n of linked) byLevel.set(n.level, [...(byLevel.get(n.level) ?? []), n]);
     const levels = [...byLevel.keys()].sort((a, b) => a - b);
 
-    // Seed each column by position, then run barycentre passes so edges cross less.
     const order = new Map<number, number>();
     for (const l of levels) {
       byLevel.get(l)!.sort((a, b) => a.position - b.position);
       byLevel.get(l)!.forEach((n, i) => order.set(n.id, i));
     }
-    const upstream = new Map<number, number[]>();
-    const downstream = new Map<number, number[]>();
+    const up = new Map<number, number[]>();
+    const down = new Map<number, number[]>();
     for (const e of g.edges) {
-      upstream.set(e.to, [...(upstream.get(e.to) ?? []), e.from]);
-      downstream.set(e.from, [...(downstream.get(e.from) ?? []), e.to]);
+      up.set(e.to, [...(up.get(e.to) ?? []), e.from]);
+      down.set(e.from, [...(down.get(e.from) ?? []), e.to]);
     }
     for (let pass = 0; pass < 3; pass++) {
       for (const l of levels) {
         const col = byLevel.get(l)!;
         const bary = (id: number) => {
-          const nbrs = pass % 2 === 0 ? (upstream.get(id) ?? []) : (downstream.get(id) ?? []);
-          if (!nbrs.length) return order.get(id) ?? 0;
-          return nbrs.reduce((s, x) => s + (order.get(x) ?? 0), 0) / nbrs.length;
+          const nb = pass % 2 === 0 ? (up.get(id) ?? []) : (down.get(id) ?? []);
+          return nb.length ? nb.reduce((s, x) => s + (order.get(x) ?? 0), 0) / nb.length : (order.get(id) ?? 0);
         };
         col.sort((a, b) => bary(a.id) - bary(b.id));
         col.forEach((n, i) => order.set(n.id, i));
@@ -60,127 +61,207 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
     }
 
     const placed = new Map<number, { x: number; y: number; n: (typeof linked)[number] }>();
-    for (const l of levels) {
+    for (const l of levels)
       byLevel.get(l)!.forEach((n, i) => {
         placed.set(n.id, { x: PAD + l * (NODE_W + COL_GAP), y: PAD + i * ROW_H, n });
       });
-    }
     const rows = Math.max(...levels.map((l) => byLevel.get(l)!.length), 1);
     return {
       placed,
       isolated,
       width: PAD * 2 + levels.length * NODE_W + Math.max(0, levels.length - 1) * COL_GAP,
-      height: PAD * 2 + rows * ROW_H,
+      height: PAD + PAD_BOTTOM + rows * ROW_H,
     };
   }, [g]);
 
   const connected = useMemo(() => {
-    if (hover === null) return null;
-    const s = new Set<number>([hover]);
+    if (focus === null) return null;
+    const s = new Set<number>([focus]);
     for (const e of g.edges) {
-      if (e.from === hover) s.add(e.to);
-      if (e.to === hover) s.add(e.from);
+      if (e.from === focus) s.add(e.to);
+      if (e.to === focus) s.add(e.from);
     }
     return s;
-  }, [hover, g.edges]);
+  }, [focus, g.edges]);
+
+  const sel = focus !== null ? placed.get(focus)?.n : undefined;
+  const selUp = focus !== null ? g.edges.filter((e) => e.to === focus).length : 0;
+  const selDown = focus !== null ? g.edges.filter((e) => e.from === focus).length : 0;
+
+  const fit = () => {
+    const w = scroller.current?.clientWidth ?? width;
+    setZoom(Math.min(1, Math.max(0.4, (w - 24) / width)));
+  };
 
   return (
-    <div>
-      <div className="card overflow-x-auto p-1">
-        <div className="relative" style={{ width, height }}>
-          <svg width={width} height={height} className="absolute inset-0 pointer-events-none">
-            {g.edges.map((e, i) => {
-              const a = placed.get(e.from);
-              const b = placed.get(e.to);
-              if (!a || !b) return null;
-              const x1 = a.x + NODE_W;
-              const y1 = a.y + NODE_H / 2;
-              const x2 = b.x;
-              const y2 = b.y + NODE_H / 2;
-              const dx = Math.max(28, (x2 - x1) / 2);
-              const on = hover === null || e.from === hover || e.to === hover;
-              return (
-                <path
-                  key={i}
-                  d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
-                  fill="none"
-                  stroke={on && hover !== null ? "var(--accent)" : "var(--edge)"}
-                  strokeWidth={on && hover !== null ? 1.7 : 1.15}
-                  opacity={on ? 1 : 0.18}
-                />
-              );
-            })}
-          </svg>
-          {[...placed.values()].map(({ x, y, n }) => {
-            const dim = connected !== null && !connected.has(n.id);
-            return (
-              <Link
-                key={n.id}
-                href={`${base}/c/${encodeURIComponent(n.name)}`}
-                onMouseEnter={() => setHover(n.id)}
-                onMouseLeave={() => setHover(null)}
-                className="absolute flex items-center gap-1.5 rounded-md border px-2 text-[11.5px]"
-                style={{
-                  left: x,
-                  top: y,
-                  width: NODE_W,
-                  height: NODE_H,
-                  background: hover === n.id ? "var(--accent-soft)" : "var(--surface)",
-                  borderColor: hover === n.id ? "var(--accent)" : "var(--border)",
-                  opacity: dim ? 0.3 : 1,
-                  transition: "opacity 90ms, background 90ms",
-                }}
-                title={
-                  `${n.name} · ${n.native_type}${n.role ? ` · ${n.role}` : ""}` +
-                  (n.role && GLOSSARY[n.role] ? `\n\n${GLOSSARY[n.role].title}: ${GLOSSARY[n.role].body}` : "")
-                }
-              >
-                <span
-                  className="h-3 w-[3px] shrink-0 rounded-full"
-                  style={{ background: ROLE_COLOR[n.role ?? ""] ?? "var(--border-2)" }}
-                />
-                <span className="truncate">{n.name}</span>
-                {n.degree > 3 && (
-                  <span className="mono ml-auto shrink-0 text-[10px]" style={{ color: "var(--text-3)" }}>
-                    {n.degree}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_236px]">
+      <div className="card relative overflow-hidden">
+        <div className="absolute bottom-12 right-3 z-10 flex items-center gap-1 rounded-lg border p-1"
+             style={{ background: "var(--surface)", borderColor: "var(--border-2)", boxShadow: "var(--shadow)" }}>
+          <IconBtn onClick={() => setZoom((z) => Math.min(1.6, z + 0.15))} label="Zoom in"><Plus size={13} /></IconBtn>
+          <IconBtn onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))} label="Zoom out"><Minus size={13} /></IconBtn>
+          <IconBtn onClick={fit} label="Fit"><Maximize2 size={12} /></IconBtn>
+          <IconBtn onClick={() => { setZoom(1); setPicked(null); }} label="Reset"><RotateCcw size={12} /></IconBtn>
         </div>
-      </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]" style={{ color: "var(--text-3)" }}>
-        {[...new Set(g.nodes.filter((n) => !n.isolated).map((n) => n.role ?? "unset"))]
-          .sort()
-          .map((r) => (
+        <div
+          ref={scroller}
+          className="canvas overflow-auto"
+          style={{
+            maxHeight: 560,
+            maskImage: "linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%)",
+          }}
+        >
+          <div
+            className="relative"
+            style={{ width: width * zoom, height: height * zoom }}
+            onClick={() => setPicked(null)}
+          >
+            <div style={{ width, height, transform: `scale(${zoom})`, transformOrigin: "top left" }} className="relative">
+              <svg width={width} height={height} className="pointer-events-none absolute inset-0">
+                <defs>
+                  <marker id="ah" markerWidth="7" markerHeight="7" refX="6.2" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 z" fill="var(--edge)" />
+                  </marker>
+                  <marker id="ah-on" markerWidth="7" markerHeight="7" refX="6.2" refY="3" orient="auto">
+                    <path d="M0,0 L6,3 L0,6 z" fill="var(--accent)" />
+                  </marker>
+                </defs>
+                {g.edges.map((e, i) => {
+                  const a = placed.get(e.from), b = placed.get(e.to);
+                  if (!a || !b) return null;
+                  const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
+                  const x2 = b.x, y2 = b.y + NODE_H / 2;
+                  const dx = Math.max(30, (x2 - x1) / 2);
+                  const on = focus !== null && (e.from === focus || e.to === focus);
+                  return (
+                    <path
+                      key={i}
+                      d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
+                      fill="none"
+                      stroke={on ? "var(--accent)" : "var(--edge)"}
+                      strokeWidth={on ? 1.9 : 1.2}
+                      markerEnd={on ? "url(#ah-on)" : "url(#ah)"}
+                      opacity={focus === null || on ? 1 : 0.15}
+                    />
+                  );
+                })}
+              </svg>
+
+              {[...placed.values()].map(({ x, y, n }) => {
+                const dim = connected !== null && !connected.has(n.id);
+                const isFocus = focus === n.id;
+                const color = ROLE_COLOR[n.role ?? ""] ?? "var(--border-2)";
+                return (
+                  <button
+                    key={n.id}
+                    onMouseEnter={() => setHover(n.id)}
+                    onMouseLeave={() => setHover(null)}
+                    onClick={(ev) => { ev.stopPropagation(); setPicked(picked === n.id ? null : n.id); }}
+                    className="absolute rounded-lg border px-2.5 text-left"
+                    style={{
+                      left: x, top: y, width: NODE_W, height: NODE_H,
+                      background: isFocus ? "var(--surface-2)" : "var(--surface)",
+                      borderColor: isFocus ? "var(--accent)" : color,
+                      borderLeftWidth: 3, borderLeftColor: color,
+                      opacity: dim ? 0.28 : 1,
+                      boxShadow: isFocus ? "0 0 0 1px var(--accent)" : "none",
+                      transition: "opacity 90ms, background 90ms",
+                    }}
+                    title={
+                      `${n.name} · ${n.native_type}${n.role ? ` · ${n.role}` : ""}` +
+                      (n.role && GLOSSARY[n.role] ? `\n\n${GLOSSARY[n.role].title}: ${GLOSSARY[n.role].body}` : "")
+                    }
+                  >
+                    <div className="truncate pt-[5px] text-[11.5px] font-medium leading-tight">{n.name}</div>
+                    <div className="flex items-center gap-1.5 text-[9.5px] uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+                      <span className="truncate">{n.native_type}</span>
+                      {n.degree > 3 && <span className="mono ml-auto shrink-0 normal-case">{n.degree}</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t px-4 py-2 text-[11px]" style={{ color: "var(--text-3)" }}>
+          {[...new Set(g.nodes.filter((n) => !n.isolated).map((n) => n.role ?? "unset"))].sort().map((r) => (
             <span key={r} className="flex items-center gap-1.5">
-              <span
-                className="h-2.5 w-[3px] rounded-full"
-                style={{ background: ROLE_COLOR[r] ?? "var(--border-2)" }}
-              />
+              <span className="h-2.5 w-[3px] rounded-full" style={{ background: ROLE_COLOR[r] ?? "var(--border-2)" }} />
               <Term k={r}>{r.replace(/_/g, " ")}</Term>
             </span>
           ))}
-        <span className="ml-auto">upstream left, downstream right · <Term k="degree">number = total references</Term></span>
+          <span className="ml-auto">upstream left · <Term k="degree">number = references</Term></span>
+        </div>
       </div>
 
-      {isolated.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11.5px]" style={{ color: "var(--text-3)" }}>
-          <span><Term k="not_referenced">Not referenced</Term> ({isolated.length}):</span>
-          {isolated.map((n) => (
-            <Link
-              key={n.id}
-              href={`${base}/c/${encodeURIComponent(n.name)}`}
-              className="rounded border px-1.5 py-0.5 hover:underline"
-              style={{ borderColor: "var(--border)" }}
-            >
-              {n.name}
+      <aside className="card self-start overflow-hidden">
+        <div className="flex items-center justify-between border-b px-3.5 py-2.5" style={{ background: "var(--surface-2)" }}>
+          <span className="eyebrow">Selection</span>
+          {sel && (
+            <Link href={`${base}/c/${encodeURIComponent(sel.name)}`} className="flex items-center gap-1 text-[11.5px] hover:underline" style={{ color: "var(--accent)" }}>
+              Open <ArrowUpRight size={11} />
             </Link>
-          ))}
+          )}
         </div>
-      )}
+        {sel ? (
+          <div className="px-3.5 py-3">
+            <div className="text-[13px] font-semibold leading-tight">{sel.name}</div>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              <span className="pill" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>{sel.native_type}</span>
+              {sel.role && (
+                <span className="pill" style={{ background: "var(--surface-2)", color: ROLE_COLOR[sel.role] ?? "var(--text-2)" }}>
+                  {sel.role.replace(/_/g, " ")}
+                </span>
+              )}
+            </div>
+            <dl className="mt-3 space-y-1.5 text-[12px]">
+              <Row k="Depends on" v={selUp} />
+              <Row k="Feeds" v={selDown} />
+              <Row k="Level" v={sel.level + 1} />
+            </dl>
+          </div>
+        ) : (
+          <p className="px-3.5 py-3 text-[12px]" style={{ color: "var(--text-3)" }}>
+            Hover a rule to trace it. Click to pin it.
+          </p>
+        )}
+
+        {isolated.length > 0 && (
+          <div className="border-t px-3.5 py-3">
+            <div className="eyebrow mb-1.5"><Term k="not_referenced">Not referenced</Term> · {isolated.length}</div>
+            <div className="flex flex-wrap gap-1">
+              {isolated.map((n) => (
+                <Link key={n.id} href={`${base}/c/${encodeURIComponent(n.name)}`} className="pill hover:underline" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
+                  {n.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+function IconBtn({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label}
+      className="grid h-6 w-6 place-items-center rounded-md"
+      style={{ color: "var(--text-2)" }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+      {children}
+    </button>
+  );
+}
+function Row({ k, v }: { k: string; v: number }) {
+  return (
+    <div className="flex justify-between">
+      <dt style={{ color: "var(--text-2)" }}>{k}</dt>
+      <dd className="mono">{v}</dd>
     </div>
   );
 }

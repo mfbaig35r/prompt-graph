@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Term } from "@/components/Tip";
 import { useLiveVersion } from "@/components/Live";
-import { Card, Crumbs, Eyebrow, GoChevron, Pill, statusTone } from "@/components/ui";
+import {GoChevron, PageHeader, Panel, Pill, statusTone} from "@/components/ui";
 import {
   ClipboardCheck, FileText, FlaskConical, Files, LayoutGrid, ListChecks, Network, Scale,
   CircleDashed, Variable,
@@ -58,37 +58,42 @@ export default function TablePage() {
 
   return (
     <main className="px-8 py-7">
-      <Crumbs items={[{ label: matter, href: base }, { label: d.table }]} />
-      <div className="mb-5">
-        <h1 className="text-[19px] font-semibold tracking-[-0.01em]">{d.table}</h1>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          <Pill tone="accent">{d.column_count} rules</Pill>
-          {d.grouping_enabled && <Pill>grouped</Pill>}
-          {d.readiness.total > 0 && <Pill tone="warn">{d.readiness.total} findings</Pill>}
+      <PageHeader
+        crumbs={[{ label: matter, href: base }, { label: d.table }]}
+        title={d.table}
+        description={
+          d.review_unit ? (
+            <>
+              <span className="eyebrow mr-1.5"><Term k="review_unit">One row =</Term></span>
+              {d.review_unit}
+            </>
+          ) : null
+        }
+        right={
+          <>
+            <Pill tone="accent">{d.column_count} rules</Pill>
+            {d.grouping_enabled && <Pill>grouped</Pill>}
+            {d.readiness.total > 0 && <Pill tone="warn">{d.readiness.total} findings</Pill>}
+          </>
+        }
+      />
+
+      {g && g.edges.length > 0 && (
+        <div className="mb-6">
+          <div className="eyebrow mb-2 flex items-center gap-1.5">
+            <Network size={12} strokeWidth={2.25} />
+            <Term k="reference_graph">Reference graph</Term> · {g.edges.length} edges · {g.depth} levels
+          </div>
+          <ModuleGraph g={g} base={`${base}/t/${encodeURIComponent(d.table)}`} />
         </div>
-        {d.review_unit && (
-          <p className="mt-2.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
-            <span className="eyebrow mb-0 mr-1.5"><Term k="review_unit">One row =</Term></span>
-            {d.review_unit}
-          </p>
-        )}
-      </div>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_290px]">
         <section>
-          {g && g.edges.length > 0 && (
-            <div className="mb-6">
-              <Eyebrow icon={Network}>
-                <Term k="reference_graph">Reference graph</Term> · {g.edges.length} edges · {g.depth} levels
-              </Eyebrow>
-              <ModuleGraph g={g} base={`${base}/t/${encodeURIComponent(d.table)}`} />
-            </div>
-          )}
-          <Eyebrow icon={ListChecks}>Rules</Eyebrow>
-          <Card className="overflow-hidden">
+          <Panel title="Rules" icon={ListChecks}>
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b" style={{ background: "var(--surface-2)" }}>
+                <tr className="border-b">
                   <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">#</th>
                   <th className="eyebrow mb-0 px-4 py-2.5 font-semibold">Rule</th>
                   <th className="eyebrow mb-0 px-4 py-2.5 font-semibold"><Term k="native_type">Type</Term></th>
@@ -126,12 +131,11 @@ export default function TablePage() {
                 ))}
               </tbody>
             </table>
-          </Card>
+          </Panel>
         </section>
 
         <aside>
-          <Eyebrow icon={ClipboardCheck}>Readiness · {d.readiness.total}</Eyebrow>
-          <Card className="max-h-[70vh] overflow-y-auto">
+          <Panel title={`Readiness · ${d.readiness.total}`} icon={ClipboardCheck} bodyClassName="max-h-[70vh] overflow-y-auto">
             {causes.length === 0 && (
               <div className="px-4 py-3 text-[12.5px]" style={{ color: "var(--text-3)" }}>Nothing outstanding.</div>
             )}
@@ -159,7 +163,7 @@ export default function TablePage() {
                 )}
               </div>
             ))}
-          </Card>
+          </Panel>
         </aside>
       </div>
     </main>

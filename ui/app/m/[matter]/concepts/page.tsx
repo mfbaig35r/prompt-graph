@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, GitCompare, Shuffle } from "lucide-react";
 import { Term } from "@/components/Tip";
 import { useLiveVersion } from "@/components/Live";
-import { Card, Crumbs, Eyebrow, Pill, Stat } from "@/components/ui";
+import {Card, Eyebrow, PageHeader, Panel, Pill, Stat} from "@/components/ui";
 import { getConcepts, type Concepts, type Divergence } from "@/lib/api";
 
 export default function ConceptsPage() {
@@ -40,15 +40,13 @@ export default function ConceptsPage() {
 
   return (
     <main className="px-8 py-7">
-      <Crumbs items={[{ label: matter, href: base }, { label: "Concepts" }]} />
-      <h1 className="text-[19px] font-semibold tracking-[-0.01em]">Cross-module consistency</h1>
-      <p className="mt-1.5 max-w-3xl text-[13px]" style={{ color: "var(--text-2)" }}>
-        Where the same legal concept is handled differently in different modules. Every row below
-        is a place a reviewer could get two different answers to the same question depending on
-        which module ran.
-      </p>
+      <PageHeader
+        crumbs={[{ label: matter, href: base }, { label: "Consistency" }]}
+        title="Cross-module consistency"
+        description="Where the same legal concept is handled differently in different modules. Every row below is a place a reviewer could get two different answers to the same question depending on which module ran."
+      />
 
-      <div className="my-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat termKey="divergent_rules" label="Same name, different rules" value={d.counts.divergent} tone={d.counts.divergent ? "warn" : undefined} icon={GitCompare} />
         <Stat termKey="name_variant" label="Similar names, no shared concept" value={d.counts.name_variants} tone={d.counts.name_variants ? "warn" : undefined} icon={Shuffle} />
         <Stat label="Other consistency findings" value={d.counts.other} />
@@ -61,10 +59,7 @@ export default function ConceptsPage() {
         ))}
       </div>
 
-      <Eyebrow icon={Shuffle} className="mt-8">
-        Similar names, no shared concept · {d.name_variants.length}
-      </Eyebrow>
-      <Card className="overflow-hidden">
+      <div className="mt-8"><Panel title={`Similar names, no shared concept · ${d.name_variants.length}`} icon={Shuffle}>
         {d.name_variants.map((v, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-[12.5px] last:border-b-0">
             {v.members.map((mm, j) => (
@@ -81,7 +76,7 @@ export default function ConceptsPage() {
             ))}
           </div>
         ))}
-      </Card>
+      </Panel></div>
     </main>
   );
 }
