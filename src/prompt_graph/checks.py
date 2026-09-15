@@ -174,6 +174,9 @@ _QUALIFIERS = {
     "proposed",
     "maximum",
     "minimum",
+    # "Filing Type" asks what a filing is; "Filing Type Required" asks what must be filed and
+    # when. Forward-looking obligation, not a classification of the thing in front of you.
+    "required",
 }
 
 

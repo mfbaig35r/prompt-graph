@@ -1,0 +1,625 @@
+{
+  "_": "Hand-labelled name-variant cases, taken from the firm's prompt library so precision is measured on real inputs rather than invented ones. Only column names, roles and types are recorded: no prompt text. Labels are one reviewer's reading of each column's stored purpose and have not been through a lawyer. 'unclear' cases are excluded from the precision denominator rather than forced into a binary.",
+  "labelled_by": "initial triage, 2026-09-15",
+  "cases": [
+    {
+      "names": [
+        "Acceleration on Change of Control",
+        "Default Acceleration on Change of Control"
+      ],
+      "label": "different",
+      "why": "The plan's default resolves the instrument's actual; two levels, two questions.",
+      "members": [
+        {
+          "table": "03 Capitalization and Securities",
+          "column": "Acceleration on Change of Control",
+          "role": "extraction",
+          "native_type": "Classify"
+        },
+        {
+          "table": "04 Equity Plans",
+          "column": "Default Acceleration on Change of Control",
+          "role": "orientation",
+          "native_type": "Classify"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Approval Threshold Language",
+        "Threshold Language"
+      ],
+      "label": "unclear",
+      "why": "Both ask for verbatim threshold wording, but one is an approval threshold and the other a control definition. A lawyer's call.",
+      "members": [
+        {
+          "table": "02 Corporate and Entity Structure",
+          "column": "Approval Threshold Language",
+          "role": "validation",
+          "native_type": "Verbatim"
+        },
+        {
+          "table": "16 Regulatory: Licences",
+          "column": "Threshold Language",
+          "role": "extraction",
+          "native_type": "Verbatim"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Assignment Language",
+        "IP Assignment",
+        "IP Assignment Language",
+        "Operative Assignment Language"
+      ],
+      "label": "different",
+      "why": "Three ask for verbatim clause text; 'IP Assignment' is a Classify asking whether the business owns the work.",
+      "members": [
+        {
+          "table": "01 Contracts Core",
+          "column": "Assignment Language",
+          "role": "extraction",
+          "native_type": "Verbatim"
+        },
+        {
+          "table": "13 Real Estate: Leasehold",
+          "column": "Assignment Language",
+          "role": "extraction",
+          "native_type": "Verbatim"
+        },
+        {
+          "table": "08 Employment: Individual Agreements",
+          "column": "IP Assignment",
+          "role": "orientation",
+          "native_type": "Classify"
+        },
+        {
+          "table": "08 Employment: Individual Agreements",
+          "column": "IP Assignment Language",
+          "role": "extraction",
+          "native_type": "Verbatim"
+        },
+        {
+          "table": "11 IP: Chain of Title",
+          "column": "Operative Assignment Language",
+          "role": "extraction",
+          "native_type": "Verbatim"
+        }
+      ]
+    },
+    {
+      "names": [
+        "CoC Definition and Threshold",
+        "CoC Threshold"
+      ],
+      "label": "same",
+      "why": "Both the trigger threshold; one bundles the definition with it.",
+      "members": [
+        {
+          "table": "18 Debt: Facilities",
+          "column": "CoC Definition and Threshold",
+          "role": "extraction",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "01 Contracts Core",
+          "column": "CoC Threshold",
+          "role": "extraction",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Collateral Description",
+        "Collateral Description as Filed"
+      ],
+      "label": "same",
+      "why": "Same description from two vantage points, agreement and filing. Comparing them is the point.",
+      "members": [
+        {
+          "table": "18 Debt: Facilities",
+          "column": "Collateral Description",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "19 Debt: Lien Filings",
+          "column": "Collateral Description as Filed",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Commencement Date",
+        "Rent Commencement Date",
+        "Vesting Commencement Date"
+      ],
+      "label": "different",
+      "why": "Three different dates. Rent commencement is explicitly often months after commencement.",
+      "members": [
+        {
+          "table": "13 Real Estate: Leasehold",
+          "column": "Commencement Date",
+          "role": "orientation",
+          "native_type": "Date"
+        },
+        {
+          "table": "13 Real Estate: Leasehold",
+          "column": "Rent Commencement Date",
+          "role": "orientation",
+          "native_type": "Date"
+        },
+        {
+          "table": "03 Capitalization and Securities",
+          "column": "Vesting Commencement Date",
+          "role": "extraction",
+          "native_type": "Date"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Data Gaps",
+        "Limitations and Data Gaps"
+      ],
+      "label": "same",
+      "why": "Both ask what the preparer could not establish.",
+      "members": [
+        {
+          "table": "21 Environmental: Assessments",
+          "column": "Data Gaps",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "12 IP: Technology and Open Source",
+          "column": "Limitations and Data Gaps",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Default Post-Termination Exercise",
+        "Post-Termination Exercise Period"
+      ],
+      "label": "different",
+      "why": "Plan default versus one instrument's actual.",
+      "members": [
+        {
+          "table": "04 Equity Plans",
+          "column": "Default Post-Termination Exercise",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "03 Capitalization and Securities",
+          "column": "Post-Termination Exercise Period",
+          "role": "extraction",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Default Transfer Restrictions",
+        "Transfer Restrictions"
+      ],
+      "label": "different",
+      "why": "Plan default, plus two instrument-level questions that are themselves different.",
+      "members": [
+        {
+          "table": "04 Equity Plans",
+          "column": "Default Transfer Restrictions",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "02 Corporate and Entity Structure",
+          "column": "Transfer Restrictions",
+          "role": "orientation",
+          "native_type": "Classify"
+        },
+        {
+          "table": "03 Capitalization and Securities",
+          "column": "Transfer Restrictions",
+          "role": "extraction",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Dispute Resolution",
+        "Dispute Resolution Provisions"
+      ],
+      "label": "different",
+      "why": "One asks where and how disputes resolve; the other whether the policy is where those provisions live.",
+      "members": [
+        {
+          "table": "07 Contracts Commercial",
+          "column": "Dispute Resolution",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "09 Employment: Policies",
+          "column": "Dispute Resolution Provisions",
+          "role": "extraction",
+          "native_type": "Classify"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Documents in Unit",
+        "Governing Documents in Unit"
+      ],
+      "label": "same",
+      "why": "Both inventory the document set behind the row.",
+      "members": [
+        {
+          "table": "01 Contracts Core",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "03 Capitalization and Securities",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "04 Equity Plans",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "08 Employment: Individual Agreements",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "09 Employment: Policies",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "10 IP: Registrations",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "11 IP: Chain of Title",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "12 IP: Technology and Open Source",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "13 Real Estate: Leasehold",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "14 Real Estate: Owned Property",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "15 Litigation and Disputes",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "16 Regulatory: Licences",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "17 Regulatory: Correspondence and Examinations",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "18 Debt: Facilities",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "19 Debt: Lien Filings",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "20 Insurance",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "21 Environmental: Assessments",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "22 Environmental: Permits",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "23 Environmental: Enforcement",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "24 Tax: Returns and Filings",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "25 Tax: Agreements and Correspondence",
+          "column": "Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "02 Corporate and Entity Structure",
+          "column": "Governing Documents in Unit",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Filing Office and Jurisdiction",
+        "Office and Jurisdiction"
+      ],
+      "label": "same",
+      "why": "Both ask which office and jurisdiction.",
+      "members": [
+        {
+          "table": "19 Debt: Lien Filings",
+          "column": "Filing Office and Jurisdiction",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "10 IP: Registrations",
+          "column": "Office and Jurisdiction",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Filing Type",
+        "Filing Type Required"
+      ],
+      "label": "different",
+      "why": "One classifies the filing in front of you; the other asks what must be filed before closing.",
+      "members": [
+        {
+          "table": "19 Debt: Lien Filings",
+          "column": "Filing Type",
+          "role": "orientation",
+          "native_type": "Classify"
+        },
+        {
+          "table": "24 Tax: Returns and Filings",
+          "column": "Filing Type",
+          "role": "orientation",
+          "native_type": "Classify"
+        },
+        {
+          "table": "16 Regulatory: Licences",
+          "column": "Filing Type Required",
+          "role": "orientation",
+          "native_type": "Classify"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Governing Law",
+        "Jurisdiction and Governing Law"
+      ],
+      "label": "same",
+      "why": "Same choice-of-law question; one bundles forum with it.",
+      "members": [
+        {
+          "table": "01 Contracts Core",
+          "column": "Governing Law",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "05 Intake Classification",
+          "column": "Governing Law",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "08 Employment: Individual Agreements",
+          "column": "Governing Law",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "13 Real Estate: Leasehold",
+          "column": "Governing Law",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "18 Debt: Facilities",
+          "column": "Governing Law",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "15 Litigation and Disputes",
+          "column": "Jurisdiction and Governing Law",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Grant or Issue Date",
+        "Issue Date"
+      ],
+      "label": "same",
+      "why": "Both ask when the instrument was issued.",
+      "members": [
+        {
+          "table": "03 Capitalization and Securities",
+          "column": "Grant or Issue Date",
+          "role": "extraction",
+          "native_type": "Date"
+        },
+        {
+          "table": "16 Regulatory: Licences",
+          "column": "Issue Date",
+          "role": "orientation",
+          "native_type": "Date"
+        },
+        {
+          "table": "22 Environmental: Permits",
+          "column": "Issue Date",
+          "role": "orientation",
+          "native_type": "Date"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Holder Matches Target Entity",
+        "Owner Matches Target Entity"
+      ],
+      "label": "same",
+      "why": "Explicitly the same pattern: does the registered party sit inside the acquired group.",
+      "members": [
+        {
+          "table": "16 Regulatory: Licences",
+          "column": "Holder Matches Target Entity",
+          "role": "extraction",
+          "native_type": "Classify"
+        },
+        {
+          "table": "10 IP: Registrations",
+          "column": "Owner Matches Target Entity",
+          "role": "extraction",
+          "native_type": "Classify"
+        },
+        {
+          "table": "14 Real Estate: Owned Property",
+          "column": "Owner Matches Target Entity",
+          "role": "reconciliation",
+          "native_type": "Classify"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Initiated Date",
+        "Initiated or Executed Date"
+      ],
+      "label": "same",
+      "why": "Both ask when the matter began.",
+      "members": [
+        {
+          "table": "17 Regulatory: Correspondence and Examinations",
+          "column": "Initiated Date",
+          "role": "orientation",
+          "native_type": "Date"
+        },
+        {
+          "table": "23 Environmental: Enforcement",
+          "column": "Initiated Date",
+          "role": "orientation",
+          "native_type": "Date"
+        },
+        {
+          "table": "25 Tax: Agreements and Correspondence",
+          "column": "Initiated or Executed Date",
+          "role": "orientation",
+          "native_type": "Date"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Issues or Subject Matter",
+        "Subject Matter"
+      ],
+      "label": "same",
+      "why": "Both ask what the matter is about.",
+      "members": [
+        {
+          "table": "25 Tax: Agreements and Correspondence",
+          "column": "Issues or Subject Matter",
+          "role": "extraction",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "17 Regulatory: Correspondence and Examinations",
+          "column": "Subject Matter",
+          "role": "extraction",
+          "native_type": "FreeResponse"
+        }
+      ]
+    },
+    {
+      "names": [
+        "Permitted Use",
+        "Zoning and Permitted Use"
+      ],
+      "label": "same",
+      "why": "Both ask what use is permitted at the property, from lease covenant and from zoning.",
+      "members": [
+        {
+          "table": "13 Real Estate: Leasehold",
+          "column": "Permitted Use",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        },
+        {
+          "table": "14 Real Estate: Owned Property",
+          "column": "Zoning and Permitted Use",
+          "role": "orientation",
+          "native_type": "FreeResponse"
+        }
+      ]
+    }
+  ]
+}
