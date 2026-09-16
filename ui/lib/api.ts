@@ -114,6 +114,7 @@ export type ColumnDetail = {
   consumes_parameters: { name: string; value: string | null; status: string; binding_site: string }[];
   sources_parameters: { name: string; value: string | null; status: string }[];
   staleness: { state: string; reasons: string[] };
+  memo_assertions: { section: string; text: string; kind: string; note: string | null; source_note: string | null }[];
   evaluation: { runs: number; documents_tested: number; open_failures: number; open_failure_classes: string[] };
   history: PromptVersion[];
 };
@@ -180,6 +181,32 @@ export type Concepts = {
     total_columns: number;
   };
 };
+
+export type CoverageSource = { table: string; column: string; status?: string; reliable?: boolean; reasons?: string[]; note?: string | null };
+export type CoverageAssertion = {
+  assertion: string;
+  kind: "extraction" | "judgment";
+  note: string | null;
+  sources: CoverageSource[];
+  status: "reliably_covered" | "nominally_covered" | "extraction_gap" | "judgment_boundary";
+};
+export type Coverage = {
+  matter: string;
+  outline: string;
+  outline_version: number;
+  totals: {
+    assertions: number;
+    reliably_covered: number;
+    nominally_covered: number;
+    extraction_gap: number;
+    judgment_boundary: number;
+  };
+  sections: { section: string; assertions: CoverageAssertion[] }[];
+  unsourced_columns: { table: string; column: string; native_type: string; role: string | null; status: string }[];
+};
+
+export const getCoverage = (m: string) =>
+  get<Coverage>(`/api/matters/${encodeURIComponent(m)}/coverage`);
 
 export const getConcepts = (m: string) =>
   get<Concepts>(`/api/matters/${encodeURIComponent(m)}/concepts`);

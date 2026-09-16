@@ -7,7 +7,7 @@ import { Term } from "@/components/Tip";
 import { useLiveVersion } from "@/components/Live";
 import { PageHeader, Panel, Pill, statusTone } from "@/components/ui";
 import {
-  ArrowDownLeft, ArrowUpRight, FileText, FlaskConical, History, List, Undo2, Variable,
+  ArrowDownLeft, ArrowUpRight, BookOpen, FileText, FlaskConical, History, List, Undo2, Variable,
 } from "lucide-react";
 import { getColumn, type ColumnDetail } from "@/lib/api";
 
@@ -152,6 +152,25 @@ export default function ColumnPage() {
               </Panel>
             </div>
           )}
+          <div>
+            <Panel
+              title={`Supports the memo · ${d.memo_assertions?.length ?? 0}`}
+              icon={BookOpen}
+            >
+              {!d.memo_assertions?.length ? (
+                <Empty>Feeds no memo assertion.</Empty>
+              ) : (
+                d.memo_assertions.map((a, i) => (
+                  <div key={i} className="border-b px-5 py-2.5 last:border-b-0">
+                    <div className="text-[12.5px]">{a.text}</div>
+                    <div className="mt-0.5 text-[11.5px]" style={{ color: "var(--text-3)" }}>
+                      {a.section} · {a.kind}
+                    </div>
+                  </div>
+                ))
+              )}
+            </Panel>
+          </div>
           <div>
             <Panel title="Evaluation" icon={FlaskConical} bodyClassName="px-5 py-3.5 text-[12.5px]">
               {d.evaluation.runs === 0 ? (

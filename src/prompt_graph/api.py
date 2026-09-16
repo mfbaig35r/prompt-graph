@@ -21,6 +21,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import checks as checks_mod
+from . import coverage as coverage_mod
 from . import db, overview, readiness, service
 from .findings import Finding, PromptGraphError, dump
 
@@ -234,6 +235,24 @@ def concepts(matter: str) -> dict[str, Any]:
         }
 
 
+@app.get("/api/matters/{matter}/coverage")
+def coverage(matter: str) -> dict[str, Any]:
+    """The memo outline and what supports each thing it has to be able to say.
+
+    This is the correlation store: assertions carry the deliverable's claims, `sources` the
+    columns that evidence them, and `note` the playbook citation where one exists. Status is
+    computed, not stored. `nominally_covered` means sourced but never run, which is the whole
+    matter's state until a run exists: it is not a defect and should not read as one.
+    `extraction_gap` is the status that means a real hole.
+    """
+    with _conn() as c:
+        try:
+            service.get_matter(c, matter)
+        except PromptGraphError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return _serialise(coverage_mod.coverage_check(c, matter))
+
+
 @app.get("/api/matters/{matter}/tables/{table}")
 def table_detail(matter: str, table: str) -> dict[str, Any]:
     """A module and every rule in it, with the readiness findings grouped by cause."""
@@ -331,12 +350,30 @@ def table_graph(matter: str, table: str) -> dict[str, Any]:
 
 @app.get("/api/matters/{matter}/tables/{table}/columns/{column}")
 def column_detail(matter: str, table: str, column: str) -> dict[str, Any]:
-    """One rule in full: current prompt text, every prior version, dependencies both ways."""
+    """One rule in full: current prompt text, every prior version, dependencies both ways, and
+    the memo assertions it feeds, which is the answer to why the rule exists at all."""
     with _conn() as c:
         try:
-            return service.column_read(c, matter, table, column, include_history=True)
+            d = service.column_read(c, matter, table, column, include_history=True)
+            m = service.get_matter(c, matter)
         except PromptGraphError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
+        d["memo_assertions"] = _assertions_for(c, int(m["id"]), int(d["column_id"]))
+        return d
+
+
+def _assertions_for(c: sqlite3.Connection, matter_id: int, column_id: int) -> list[dict[str, Any]]:
+    rows = c.execute(
+        """SELECT ms.name AS section, ma.text, ma.kind, ma.note, asrc.note AS source_note
+           FROM assertion_source asrc
+           JOIN memo_assertion ma ON ma.id = asrc.assertion_id
+           JOIN memo_section ms ON ms.id = ma.section_id
+           JOIN memo_outline mo ON mo.id = ms.outline_id
+           WHERE mo.matter_id = ? AND mo.is_current = 1 AND asrc.column_id = ?
+           ORDER BY ms.position, ma.position""",
+        (matter_id, column_id),
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 @app.get("/api/matters/{matter}/activity")
