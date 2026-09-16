@@ -73,7 +73,7 @@ export default function TablePage() {
         }
         right={
           <>
-            <Pill tone="accent">{d.column_count} rules</Pill>
+            <Pill tone="accent">{d.column_count} prompts</Pill>
             {d.grouping_enabled && <Pill>grouped</Pill>}
             {d.readiness.total > 0 && <Pill tone="warn">{d.readiness.total} findings</Pill>}
           </>
@@ -92,12 +92,12 @@ export default function TablePage() {
 
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_300px]">
         <section>
-          <Panel title="Rules" icon={ListChecks}>
+          <Panel title="Prompts" icon={ListChecks}>
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b">
                   <th className="eyebrow mb-0 px-5 py-3 font-semibold">#</th>
-                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">Rule</th>
+                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">Prompt</th>
                   <th className="eyebrow mb-0 px-5 py-3 font-semibold"><Term k="native_type">Type</Term></th>
                   <th className="eyebrow mb-0 px-5 py-3 font-semibold"><Term k="role">Role</Term></th>
                   <th className="eyebrow mb-0 px-5 py-3 font-semibold"><Term k="status">Status</Term></th>

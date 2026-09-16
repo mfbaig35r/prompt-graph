@@ -52,7 +52,7 @@ export default function CoveragePage() {
       <PageHeader
         crumbs={[{ label: matter, href: base }, { label: "Correlation" }]}
         title={d.outline}
-        description="What the memo has to be able to say, and which review-table rules supply the evidence for each claim. Sections carry their playbook reference; assertions carry their citation."
+        description="What the memo has to be able to say, and which prompts supply the evidence for each claim. Sections carry their playbook reference; assertions carry their citation."
         right={
           <span className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
             outline v{d.outline_version} · {d.sections.length} sections
@@ -71,7 +71,7 @@ export default function CoveragePage() {
       {t.reliably_covered === 0 && (
         <p className="mb-6 rounded-lg border px-4 py-3 text-[12.5px]" style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--text-2)" }}>
           Nothing reads <strong style={{ color: "var(--text)" }}>reliably covered</strong> because no
-          rule has been run against documents yet. Every sourced assertion stays{" "}
+          prompt has been run against documents yet. Every sourced assertion stays{" "}
           <strong style={{ color: "var(--text)" }}>sourced</strong> until a run exists. That is the
           expected state, not a defect. <strong style={{ color: "var(--text)" }}>{t.extraction_gap} extraction gaps</strong>{" "}
           is the number that would mean a real hole in the schema.
@@ -109,7 +109,7 @@ export default function CoveragePage() {
         </div>
 
         <aside className="self-start">
-          <Panel title={`Rules feeding no assertion · ${d.unsourced_columns.length}`} icon={Unplug} bodyClassName="max-h-[70vh] overflow-y-auto">
+          <Panel title={`Prompts feeding no assertion · ${d.unsourced_columns.length}`} icon={Unplug} bodyClassName="max-h-[70vh] overflow-y-auto">
             <p className="border-b px-5 py-3 text-[12px]" style={{ color: "var(--text-3)" }}>
               Mostly routing and spine infrastructure, which correctly supports no claim of its
               own. The rest are candidates to retire or to wire up.

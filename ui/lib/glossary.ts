@@ -3,11 +3,11 @@
 export type Entry = { title: string; body: string };
 
 export const GLOSSARY: Record<string, Entry> = {
-  // --- rule roles, in the order they run ---
+  // --- prompt roles, in the order they run ---
   role: {
     title: "Role",
     body:
-      "Where a rule sits in the staged pattern: orientation, then extraction, then validation, " +
+      "Where a prompt sits in the staged pattern: orientation, then extraction, then validation, " +
       "reconciliation, and human review. Earlier stages establish what the row is so later ones " +
       "can rely on it.",
   },
@@ -15,16 +15,16 @@ export const GLOSSARY: Record<string, Entry> = {
     title: "Orientation",
     body:
       "Establishes what the row is and which documents it was built from, before anything " +
-      "substantive is read. Runs first so later rules can route on its answer.",
+      "substantive is read. Runs first so later prompts can route on its answer.",
   },
   extraction: {
     title: "Extraction",
-    body: "Pulls a substantive fact out of the documents. The bulk of most modules.",
+    body: "Pulls a substantive fact out of the documents. The bulk of most review tables.",
   },
   validation: {
     title: "Validation",
     body:
-      "Checks a fact, or supplies the key another rule or table joins on, so an answer can be " +
+      "Checks a fact, or supplies the key another prompt or table joins on, so an answer can be " +
       "tested rather than taken on trust.",
   },
   reconciliation: {
@@ -63,7 +63,7 @@ export const GLOSSARY: Record<string, Entry> = {
   status: {
     title: "Status",
     body:
-      "Where a rule is in its life: draft (written, not tested), testing (being evaluated), " +
+      "Where a prompt is in its life: draft (written, not tested), testing (being evaluated), " +
       "verified (passed its test set), retired (no longer in use).",
   },
   draft: { title: "Draft", body: "Written but not yet tested against documents." },
@@ -75,19 +75,19 @@ export const GLOSSARY: Record<string, Entry> = {
   staleness: {
     title: "Staleness",
     body:
-      "Whether a rule's last recorded result still reflects the rule as it stands now. Never run " +
+      "Whether a prompt's last recorded result still reflects the prompt as it stands now. Never run " +
       "means no result exists at all.",
   },
-  never_run: { title: "Never run", body: "No result has ever been recorded for this rule." },
+  never_run: { title: "Never run", body: "No result has ever been recorded for this prompt." },
   current: { title: "Current", body: "Nothing has changed since the last recorded run." },
   stale_direct: {
     title: "Stale",
-    body: "The rule's own text changed after the last run, so the recorded result is out of date.",
+    body: "The prompt's own text changed after the last run, so the recorded result is out of date.",
   },
   stale_transitive: {
     title: "Stale via upstream",
     body:
-      "The rule itself did not change, but something it depends on did, so its answer may no " +
+      "The prompt itself did not change, but something it depends on did, so its answer may no " +
       "longer hold.",
   },
   open_failures: {
@@ -101,43 +101,43 @@ export const GLOSSARY: Record<string, Entry> = {
   reference_graph: {
     title: "Reference graph",
     body:
-      "Every `@Column` reference one prompt makes to another inside this module. Upstream sits " +
+      "Every `@Column` reference one prompt makes to another inside this review table. Upstream sits " +
       "left, what reads it sits right. Change something on the left and everything to its right " +
       "needs re-checking.",
   },
   degree: {
     title: "Reference count",
-    body: "How many rules this one connects to. Shown only above three, so hubs stand out.",
+    body: "How many prompts this one connects to. Shown only above three, so hubs stand out.",
   },
   review_unit: {
     title: "Review unit",
     body:
-      "What one row of the table represents. Everything a rule says is scoped to that unit and " +
+      "What one row of the table represents. Everything a prompt says is scoped to that unit and " +
       "nothing outside it.",
   },
   not_referenced: {
     title: "Not referenced",
     body:
-      "Rules no other rule in this module reads and which read nothing themselves. Often correct, " +
+      "Prompts no other prompt in this review table reads and which read nothing themselves. Often correct, " +
       "sometimes a sign a reference was written and never used.",
   },
 
   // --- consistency ---
   divergent_rules: {
-    title: "Same name, different rules",
+    title: "Same name, different definitions",
     body:
-      "One column name used in several modules with different types, options, or silence states. " +
-      "A reviewer can get two different answers to the same question depending which module ran.",
+      "One column name used in several review tables with different types, options, or silence states. " +
+      "A reviewer can get two different answers to the same question depending which review table ran.",
   },
   distinct_option_sets: {
     title: "Different option sets",
     body:
-      "How many genuinely different value sets are in use under this one name. Two modules sharing " +
+      "How many genuinely different value sets are in use under this one name. Two review tables sharing " +
       "a name and a set is agreement; this counts the disagreement.",
   },
   agreed_by_all: {
     title: "Agreed by all",
-    body: "Options every module using this name offers. Everything else is unique to some of them.",
+    body: "Options every review table using this name offers. Everything else is unique to some of them.",
   },
   name_variant: {
     title: "Similar names, no shared concept",
@@ -150,8 +150,8 @@ export const GLOSSARY: Record<string, Entry> = {
   DEAD_REFERENCE: {
     title: "Dead reference",
     body:
-      "The prompt names another column as an input but never uses it in any rule. Either the " +
-      "reference is leftover, or a rule that should use it is missing.",
+      "The prompt names another column as an input but never uses it in any instruction. Either the " +
+      "reference is leftover, or an instruction that should use it is missing.",
   },
   FALLBACK_NOT_STATED_UNTYPED: {
     title: "Wrong silence state",
@@ -185,11 +185,11 @@ export const GLOSSARY: Record<string, Entry> = {
   },
   CONCEPT_NAME_VARIANT: {
     title: "Similar names, no shared concept",
-    body: "Two rules in different modules look like the same idea but share no concept tag.",
+    body: "Two prompts in different review tables look like the same idea but share no concept tag.",
   },
   CONCEPT_DIVERGENT_RULES: {
-    title: "Same name, different rules",
-    body: "One name used across modules with different types, options, or silence states.",
+    title: "Same name, different definitions",
+    body: "One name used across review tables with different types, options, or silence states.",
   },
   CURRENCY_PATTERN_DIVERGENT: {
     title: "Currency style differs",
@@ -197,11 +197,11 @@ export const GLOSSARY: Record<string, Entry> = {
   },
   COLUMN_NOT_VERIFIED: {
     title: "Not verified",
-    body: "The rule has not been through a recorded test set.",
+    body: "The prompt has not been through a recorded test set.",
   },
   COLUMN_STALE: {
     title: "Stale",
-    body: "The recorded result predates a change to this rule or something upstream of it.",
+    body: "The recorded result predates a change to this prompt or something upstream of it.",
   },
 };
 

@@ -203,7 +203,7 @@ export function ModuleGraph({ g, base }: { g: TableGraph; base: string }) {
           </div>
         ) : (
           <p className="px-4 py-3.5 text-[12.5px]" style={{ color: "var(--text-3)" }}>
-            Hover a rule to trace it. Click to pin it.
+            Hover a prompt to trace it. Click to pin it.
           </p>
         )}
 

@@ -10,28 +10,28 @@ import { GLOSSARY } from "@/lib/glossary";
  *  guide and the hover text can never disagree. */
 const GROUPS: { title: string; blurb: string; keys: string[] }[] = [
   {
-    title: "What a rule is",
-    blurb: "Every question in the review is one rule, with a type that fixes the shape of its answer.",
+    title: "What a prompt is",
+    blurb: "Every question in the review is one prompt, with a type that fixes the shape of its answer.",
     keys: ["native_type", "Classify", "FreeResponse", "Verbatim", "Date", "Number", "Currency", "Duration"],
   },
   {
-    title: "When a rule runs",
-    blurb: "Rules are staged. Earlier stages establish what the row is so later ones can rely on it.",
+    title: "When a prompt runs",
+    blurb: "Prompts are staged. Earlier stages establish what the row is so later ones can rely on it.",
     keys: ["role", "orientation", "extraction", "validation", "reconciliation", "human_review"],
   },
   {
-    title: "Where a rule is in its life",
-    blurb: "Status is the rule's own lifecycle. Staleness is whether its last recorded result still holds.",
+    title: "Where a prompt is in its life",
+    blurb: "Status is the prompt's own lifecycle. Staleness is whether its last recorded result still holds.",
     keys: ["status", "draft", "testing", "verified", "retired", "staleness", "never_run", "current", "stale_direct", "stale_transitive", "open_failures"],
   },
   {
-    title: "How rules connect",
+    title: "How prompts connect",
     blurb: "One prompt can read another's answer. That is what makes a change ripple.",
     keys: ["reference_graph", "degree", "review_unit", "not_referenced"],
   },
   {
     title: "Where they disagree",
-    blurb: "The same legal question, asked in more than one module, answered from a different menu.",
+    blurb: "The same legal question, asked in more than one review table, answered from a different menu.",
     keys: ["divergent_rules", "distinct_option_sets", "agreed_by_all", "name_variant"],
   },
   {
@@ -42,11 +42,11 @@ const GROUPS: { title: string; blurb: string; keys: string[] }[] = [
 ];
 
 const PAGES = [
-  { icon: LayoutDashboard, name: "Overview", href: "", what: "Every module, how many rules each holds, and whether anything has run." },
+  { icon: LayoutDashboard, name: "Overview", href: "", what: "Every review table, how many prompts each holds, and whether anything has run." },
   { icon: ScrollText, name: "Requirements", href: "/requirements", what: "The external specification the suite was built to satisfy, and what each item resolved to." },
-  { icon: BookOpen, name: "Correlation", href: "/coverage", what: "What the memo has to be able to say, and which rules supply the evidence." },
-  { icon: GitCompare, name: "Consistency", href: "/concepts", what: "Where the same question is answered from a different menu in different modules." },
-  { icon: Table2, name: "A module", href: "", what: "Its rules, how they reference each other, and everything the checks found in it." },
+  { icon: BookOpen, name: "Correlation", href: "/coverage", what: "What the memo has to be able to say, and which prompts supply the evidence." },
+  { icon: GitCompare, name: "Consistency", href: "/concepts", what: "Where the same question is answered from a different menu in different review tables." },
+  { icon: Table2, name: "A review table", href: "", what: "Its prompts, how they reference each other, and everything the checks found in it." },
 ];
 
 export default function GuidePage() {
@@ -54,7 +54,7 @@ export default function GuidePage() {
     <main className="mx-auto w-full max-w-[1100px] px-10 py-10">
       <PageHeader
         title="How this fits together"
-        description="A review table turns documents into cells. This holds the rules that do it: their history, how they connect, what they are supposed to support, and what is wrong with them. It never runs a review and never makes a legal call."
+        description="A review table turns documents into cells. This holds the prompts that do it: their history, how they connect, what they are supposed to support, and what is wrong with them. It never runs a review and never makes a legal call."
       />
 
       <Panel title="The chain" icon={BookOpen} className="mb-7">
@@ -64,7 +64,7 @@ export default function GuidePage() {
         <p className="border-t px-5 py-3.5 text-[12.5px]" style={{ color: "var(--text-2)" }}>
           Read it in either direction. Left to right asks{" "}
           <em>does the specification survive all the way down to a cell?</em> Right to left asks{" "}
-          <em>why does this rule exist at all?</em> Both are one click on any rule page.
+          <em>why does this prompt exist at all?</em> Both are one click on any prompt page.
         </p>
       </Panel>
 
@@ -84,7 +84,7 @@ export default function GuidePage() {
 
       <Panel title="What it does not do" icon={CircleSlash} className="mb-7">
         <ul className="space-y-1.5 px-5 py-3.5 text-[12.5px]" style={{ color: "var(--text-2)" }}>
-          <li>It never writes or rewrites a rule.</li>
+          <li>It never writes or rewrites a prompt.</li>
           <li>It never runs a review and never reads a source document.</li>
           <li>
             It never makes a legal determination. Whether a finding matters is a judgment, so
@@ -147,8 +147,8 @@ function ticks(s: string) {
 const STEPS = [
   { label: "Requirement", sub: "the specification", page: "Requirements" },
   { label: "Assertion", sub: "what the memo must say", page: "Correlation" },
-  { label: "Rule", sub: "the question asked", page: "A module" },
-  { label: "Prompt", sub: "the instruction, versioned", page: "A rule" },
+  { label: "Column", sub: "the question asked", page: "A review table" },
+  { label: "Prompt", sub: "the instruction, versioned", page: "A column" },
   { label: "Cell", sub: "the answer, in Harvey", page: "not here" },
 ];
 
@@ -156,7 +156,7 @@ function Chain() {
   const W = 178;
   const GAP = 26;
   return (
-    <svg width={STEPS.length * W + (STEPS.length - 1) * GAP} height={96} role="img" aria-label="requirement to assertion to rule to prompt to cell">
+    <svg width={STEPS.length * W + (STEPS.length - 1) * GAP} height={96} role="img" aria-label="requirement to assertion to column to prompt to cell">
       {STEPS.map((s, i) => {
         const x = i * (W + GAP);
         const outside = s.page === "not here";

@@ -62,8 +62,8 @@ export default function MatterPage() {
       />
 
       <div className="mb-9 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Modules" value={m.table_count} icon={Layers} />
-        <Stat label="Rules" value={m.column_count} icon={ListChecks} />
+        <Stat label="Review tables" value={m.table_count} icon={Layers} />
+        <Stat label="Prompts" value={m.column_count} icon={ListChecks} />
         <Stat termKey="never_run" label="Never run" value={st.never_run} tone={st.never_run ? "warn" : undefined} icon={CircleDashed} />
         <Stat termKey="current" label="Current" value={st.current} tone={st.current ? "ok" : undefined} icon={CircleCheck} />
         <Stat termKey="staleness" label="Stale" value={stale} tone={stale ? "warn" : undefined} icon={Clock} />
@@ -72,13 +72,13 @@ export default function MatterPage() {
 
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1fr)_310px]">
         <section>
-          <Panel title="Modules" icon={Layers}>
+          <Panel title="Review tables" icon={Layers}>
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b">
-                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">Module</th>
+                  <th className="eyebrow mb-0 px-5 py-3 font-semibold">Review table</th>
                   <th className="eyebrow mb-0 px-5 py-3 font-semibold">Review unit</th>
-                  <th className="eyebrow mb-0 px-4 py-2.5 text-right font-semibold">Rules</th>
+                  <th className="eyebrow mb-0 px-4 py-2.5 text-right font-semibold">Prompts</th>
                   <th className="eyebrow mb-0 px-5 py-3 font-semibold">State</th>
                   <th className="w-8" />
                 </tr>

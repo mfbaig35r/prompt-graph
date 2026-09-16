@@ -146,7 +146,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <>
             <div className="mt-5 flex items-center justify-between px-4">
               <span className="flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--rail-text-3)" }}>
-                <Layers size={11} /> Modules
+                <Layers size={11} /> Review tables
               </span>
               <span className="mono text-[10.5px]" style={{ color: "var(--rail-text-3)" }}>{m.table_count}</span>
             </div>

@@ -42,24 +42,24 @@ export default function ConceptsPage() {
     <main className="mx-auto w-full max-w-[1560px] px-10 py-10">
       <PageHeader
         crumbs={[{ label: matter, href: base }, { label: "Consistency" }]}
-        title="Cross-module consistency"
-        description="Where the same legal concept is handled differently in different modules. Every row below is a place a reviewer could get two different answers to the same question depending on which module ran."
+        title="Cross-table consistency"
+        description="Where the same legal concept is handled differently in different review tables. Every row below is a place a reviewer could get two different answers to the same question depending on which review table ran."
         right={
           <span className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
             {d.counts.tagged_columns === 0
-              ? `no concepts tagged yet · all ${d.counts.total_columns} rules matched by name`
-              : `${d.counts.tagged_columns} of ${d.counts.total_columns} rules tagged`}
+              ? `no concepts tagged yet · all ${d.counts.total_columns} prompts matched by name`
+              : `${d.counts.tagged_columns} of ${d.counts.total_columns} prompts tagged`}
           </span>
         }
       />
 
       <div className="mb-9 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Stat termKey="divergent_rules" label="Same name, different rules" value={d.counts.divergent} tone={d.counts.divergent ? "warn" : undefined} icon={GitCompare} />
+        <Stat termKey="divergent_rules" label="Same name, different definitions" value={d.counts.divergent} tone={d.counts.divergent ? "warn" : undefined} icon={GitCompare} />
         <Stat termKey="name_variant" label="Similar names, no shared concept" value={d.counts.name_variants} tone={d.counts.name_variants ? "warn" : undefined} icon={Shuffle} />
         <Stat label="Other consistency findings" value={d.counts.other} />
       </div>
 
-      <Eyebrow icon={GitCompare}>Same name, different rules · {d.divergent.length}</Eyebrow>
+      <Eyebrow icon={GitCompare}>Same name, different definitions · {d.divergent.length}</Eyebrow>
       <div className="space-y-2.5">
         {d.divergent.map((x) => (
           <DivergenceCard key={x.name} x={x} base={base} open={open.has(x.name)} onToggle={() => toggle(x.name)} />
@@ -88,7 +88,7 @@ export default function ConceptsPage() {
                   </span>
                 ))}
                 <span className="text-[11.5px]" style={{ color: "var(--text-3)" }}>
-                  across {v.tables} modules
+                  across {v.tables} review tables
                 </span>
               </div>
 
@@ -125,7 +125,7 @@ function DivergenceCard({
       <button onClick={onToggle} className="rowlink flex w-full items-center gap-3 px-5 py-3 text-left">
         {open ? <ChevronDown size={14} style={{ color: "var(--text-3)" }} /> : <ChevronRight size={14} style={{ color: "var(--text-3)" }} />}
         <span className="font-medium">{x.name}</span>
-        <Pill tone="warn">{x.members.length} modules</Pill>
+        <Pill tone="warn">{x.members.length} review tables</Pill>
         {x.distinct_option_sets > 1 && <Term k="distinct_option_sets" underline={false}><Pill tone="stop">{x.distinct_option_sets} different option sets</Pill></Term>}
         {x.native_types.map((t) => <Pill key={t}>{t}</Pill>)}
       </button>
@@ -155,7 +155,7 @@ function DivergenceCard({
                   mm.divergent_options!.map((o) => <Pill key={o} tone="stop">{o}</Pill>)
                 ) : (
                   <span className="text-[12.5px]" style={{ color: "var(--text-3)" }}>
-                    {mm.options ? "no options unique to this module" : "differs in fallback or wording, not options"}
+                    {mm.options ? "no options unique to this review table" : "differs in fallback or wording, not options"}
                   </span>
                 )}
               </div>
