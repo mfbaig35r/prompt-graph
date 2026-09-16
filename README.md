@@ -34,7 +34,7 @@ This installs a `prompt-graph` executable inside `.venv/bin/`. Check it:
 
 ```bash
 .venv/bin/prompt-graph --migrate
-# schema version 2 at /Users/<you>/.prompt-graph/prompt-graph.db
+# schema version 3 at /Users/<you>/.prompt-graph/prompt-graph.db
 ```
 
 ## Configure
@@ -68,7 +68,7 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 }
 ```
 
-Restart Claude Desktop. The server appears as "prompt-graph" with 22 tools.
+Restart Claude Desktop. The server appears as "prompt-graph" with 24 tools.
 
 ### Claude Code
 
@@ -198,6 +198,8 @@ names; Claude calls them from natural-language requests.
 | `column_revise` | "Store this as v1.1 of Execution Status" / "Rename…" / "Retire…" |
 | `column_read` | "Show me the Signatories prompt and its history" |
 | `columns_find` | "Which Classify columns are still in draft?" |
+| `requirements_ingest` | "Here is the playbook this suite is built to satisfy" |
+| `requirement_set` | "3.4.7 Part A needs the buyer's checklist; Part B becomes section IV.B" |
 | `concept_set` | "These are all the same concept" / "No, those two are different things" |
 | `prompt_check` | "Check this draft before I store it" |
 | `suite_check` | "Is anything wrong with the suite?" / "Does it support the memo?" |
@@ -241,7 +243,7 @@ the skill is checked out beside the code and they run.
 
 ```
 src/prompt_graph/
-  server.py      the 22 MCP tools (docstrings written for the model)
+  server.py      the 24 MCP tools (docstrings written for the model)
   db.py          SQLite connection, WAL, versioned migrations
   constants.py   vocabulary, taxonomy, coverage dimensions, copied from the skill
   lint.py        prompt_check rules
@@ -257,6 +259,7 @@ src/prompt_graph/
   readiness.py   table_readiness composition
   export.py      matter_export
   seed.py        demo matter loader
+  requirements.py the requirement register: the specification a suite satisfies
   api.py         read-only HTTP API for the UI (optional [ui] extra)
 ui/              Next.js read-only view (overview page)
 fixtures/demo_matter.json

@@ -232,7 +232,7 @@ def test_freshness_memo_consequences(harbor):
 def test_export_inline_is_complete_and_serialisable(harbor_evaluated):
     r = matter_export(HARBOR, inline=True)
     doc = r["document"]
-    assert doc["export_format_version"] == 1 and doc["schema_version"] == 2
+    assert doc["export_format_version"] == 1 and doc["schema_version"] == 3
     assert r["counts"]["tables"] == 4 and r["counts"]["columns"] == 18
     assert r["counts"]["prompt_versions"] == 19  # one revision in the evaluated fixture
     assert r["counts"]["runs"] == 2 and r["counts"]["eval_results"] == 10
@@ -274,6 +274,7 @@ def test_readiness_groups_by_cause(harbor_evaluated):
         "parameters",
         "consistency",
         "coverage",
+        "requirements",
         "status",
         "evaluation",
         "coverage_dimensions",

@@ -28,7 +28,14 @@ from .service import (
     table_columns,
 )
 
-CHECK_FAMILIES: tuple[str, ...] = ("prompts", "graph", "parameters", "consistency", "coverage")
+CHECK_FAMILIES: tuple[str, ...] = (
+    "prompts",
+    "graph",
+    "parameters",
+    "consistency",
+    "coverage",
+    "requirements",
+)
 
 _REF_CODES = {"REF_UNRESOLVED", "REF_FORWARD", "REF_SELF"}
 
@@ -727,6 +734,90 @@ def suite_check(
                 elif f.code == "COV_UNSOURCED_COLUMN":
                     if only_table is None or f.evidence.get("table") == only_table["name"]:
                         findings["coverage"].append(f)
+
+    # ---------------- requirements ----------------
+    #
+    # `external` is reported the way `COV_JUDGMENT_BOUNDARY` is: a deliberate boundary, recorded
+    # so nobody mistakes it for an oversight. It is the finding the register exists to produce.
+    if "requirements" in families:
+        from .requirements import register as _register
+
+        reg = _register(conn, m["name"])
+        if not reg["sources"]:
+            if only_table is None:
+                findings["requirements"].append(
+                    Finding(
+                        "REQUIREMENT_SOURCE_MISSING",
+                        "matter",
+                        matter_id,
+                        m["name"],
+                        "No requirement source is stored, so nothing states what this suite was "
+                        "built to satisfy.",
+                        {},
+                    )
+                )
+        else:
+            for src in reg["sources"]:
+                for r in src["requirements"]:
+                    tables_named = {
+                        link["table"]
+                        for part in r["parts"]
+                        for link in part["links"]
+                        if link["table"]
+                    }
+                    if only_table is not None and only_table["name"] not in tables_named:
+                        continue
+                    for part in r["parts"]:
+                        where = f"{r['ref']}{' ' + part['label'] if part['label'] else ''}"
+                        if part["disposition"] == "unassessed":
+                            findings["requirements"].append(
+                                Finding(
+                                    "REQUIREMENT_UNASSESSED",
+                                    "matter",
+                                    matter_id,
+                                    where,
+                                    f"{where} '{r['title']}' has no disposition decided.",
+                                    {"ref": r["ref"], "source": src["source"]},
+                                )
+                            )
+                        elif part["disposition"] == "external":
+                            findings["requirements"].append(
+                                Finding(
+                                    "REQUIREMENT_EXTERNAL",
+                                    "matter",
+                                    matter_id,
+                                    where,
+                                    f"{where} '{r['title']}' cannot be served by any review "
+                                    f"table: {part['reason'] or 'no reason recorded'}",
+                                    {"ref": r["ref"], "source": src["source"]},
+                                )
+                            )
+                        elif part["disposition"] == "served" and not any(
+                            link["kind"] == "served_by" for link in part["links"]
+                        ):
+                            findings["requirements"].append(
+                                Finding(
+                                    "REQUIREMENT_SERVED_BY_NOTHING",
+                                    "matter",
+                                    matter_id,
+                                    where,
+                                    f"{where} '{r['title']}' is recorded as served by a review "
+                                    f"table, but names none.",
+                                    {"ref": r["ref"], "source": src["source"]},
+                                )
+                            )
+            if only_table is None:
+                for t in reg["tables_answering_nothing"]:
+                    findings["requirements"].append(
+                        Finding(
+                            "TABLE_ANSWERS_NO_REQUIREMENT",
+                            "matter",
+                            matter_id,
+                            t["table"],
+                            f"'{t['table']}' answers no requirement in any stored source.",
+                            {"table": t["table"]},
+                        )
+                    )
 
     counts = {fam: len(v) for fam, v in findings.items()}
     by_code: dict[str, int] = {}

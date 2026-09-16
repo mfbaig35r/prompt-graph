@@ -32,6 +32,7 @@ def table_readiness(conn: sqlite3.Connection, matter: str, table: str) -> dict[s
         # What this table supports in the deliverable. Distinct from "coverage_dimensions",
         # which is about the test set.
         "coverage": [],
+        "requirements": [],
         "status": [],
         "evaluation": [],
         "coverage_dimensions": [],

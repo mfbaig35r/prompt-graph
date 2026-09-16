@@ -292,6 +292,65 @@ CREATE INDEX idx_docset_project ON document_set_snapshot(matter_id, vault_projec
 ALTER TABLE run ADD COLUMN document_set_snapshot_id INTEGER REFERENCES document_set_snapshot(id);
 """,
     ),
+    (
+        3,
+        """
+-- The requirement register (requirements/prompt-graph-requirement-register.md): the external
+-- specification a suite is built to satisfy, so a playbook prompt that maps to no table is a
+-- stored finding rather than a line in a spreadsheet.
+
+CREATE TABLE requirement_source (
+    id          INTEGER PRIMARY KEY,
+    matter_id   INTEGER NOT NULL REFERENCES matter(id),
+    name        TEXT NOT NULL,
+    citation    TEXT,                    -- filename, edition, page count: what was read
+    version     TEXT,
+    note        TEXT,
+    created_at  TEXT NOT NULL,
+    UNIQUE (matter_id, name)
+);
+
+CREATE TABLE requirement (
+    id          INTEGER PRIMARY KEY,
+    source_id   INTEGER NOT NULL REFERENCES requirement_source(id),
+    ref         TEXT NOT NULL,           -- "3.4.7"
+    position    INTEGER NOT NULL,
+    title       TEXT NOT NULL,
+    note        TEXT,
+    created_at  TEXT NOT NULL,
+    UNIQUE (source_id, ref)
+);
+
+-- Disposition lives on a part, not on the requirement: a quarter of a real set splits, and
+-- 3.4.7 is "Part A needs an external checklist, Part B is cross-document synthesis".
+CREATE TABLE requirement_part (
+    id              INTEGER PRIMARY KEY,
+    requirement_id  INTEGER NOT NULL REFERENCES requirement(id),
+    label           TEXT,                -- "Part A"; NULL when the requirement does not split
+    position        INTEGER NOT NULL,
+    disposition     TEXT NOT NULL
+                    CHECK (disposition IN ('served', 'synthesis', 'external', 'unassessed')),
+    reason          TEXT,                -- why external, or what the synthesis must do
+    UNIQUE (requirement_id, position)
+);
+
+CREATE TABLE requirement_link (
+    id          INTEGER PRIMARY KEY,
+    part_id     INTEGER NOT NULL REFERENCES requirement_part(id),
+    kind        TEXT NOT NULL CHECK (kind IN ('served_by', 'consumes', 'produces')),
+    table_id    INTEGER REFERENCES review_table(id),
+    section_id  INTEGER REFERENCES memo_section(id),
+    note        TEXT,
+    CHECK ((table_id IS NOT NULL) + (section_id IS NOT NULL) = 1),
+    CHECK ((kind = 'produces') = (section_id IS NOT NULL)),
+    UNIQUE (part_id, kind, table_id, section_id)
+);
+CREATE INDEX idx_requirement_source ON requirement(source_id, position);
+CREATE INDEX idx_requirement_part ON requirement_part(requirement_id, position);
+CREATE INDEX idx_requirement_link_part ON requirement_link(part_id);
+CREATE INDEX idx_requirement_link_table ON requirement_link(table_id);
+""",
+    ),
 ]
 
 

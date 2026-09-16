@@ -33,7 +33,14 @@ def by_code(res):
 def test_demo_matter_findings(harbor):
     res = suite_check(HARBOR)
     b = by_code(res)
-    assert res["checks_run"] == ["prompts", "graph", "parameters", "consistency", "coverage"]
+    assert res["checks_run"] == [
+        "prompts",
+        "graph",
+        "parameters",
+        "consistency",
+        "coverage",
+        "requirements",
+    ]
     assert [f["evidence"]["variant"] for f in b["ENTITY_NAME_VARIANT"]] == ["Harbor Cold Chain LLC"]
     assert b["DATE_PATTERN_DIVERGENT"][0]["evidence"]["pattern"] == "MM/DD/YYYY"
     assert b["CURRENCY_PATTERN_DIVERGENT"][0]["evidence"]["style"] == "$9,999.99"

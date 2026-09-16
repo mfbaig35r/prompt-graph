@@ -2,8 +2,9 @@
 
 **Extends:** `prompt-graph-mcp-requirements.md`, `prompt-graph-addendum-a.md`
 **Date:** 2026-09-16
-**Status:** proposal. Nothing is built. Migration 4 below has been applied to a copy of a real
-database and its constraints exercised; it is not in `MIGRATIONS`.
+**Status:** BUILT 2026-09-16. Shipped as migration 3, not 4: the contract-review extension it
+assumed would land first has not. Tools `requirements_ingest` and `requirement_set`, and a
+`requirements` family in `suite_check`.
 
 Records the external specification a review-table suite is built to satisfy, so that a playbook
 prompt which maps to **no** table is a stored finding rather than a line in a spreadsheet.
@@ -120,7 +121,7 @@ Two new tools, so 24.
 
 ---
 
-## Migration 4
+## Migration 3 (numbered 4 in the proposal)
 
 Numbered on the assumption migration 3 (the contract-review extension) lands first. If that one
 does not ship, this becomes 3.

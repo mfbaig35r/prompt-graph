@@ -29,6 +29,7 @@ from . import (
     overview,
     parameters,
     readiness,
+    requirements,
     service,
 )
 from .constants import COVERAGE_DIMENSION_KEYS, FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
@@ -115,6 +116,38 @@ class ConceptTarget(BaseModel):
     column: str
 
 
+class RequirementLink(BaseModel):
+    kind: str = Field(description="served_by | consumes | produces.")
+    table: str | None = Field(default=None, description="Review table, for served_by/consumes.")
+    section: str | None = Field(default=None, description="Memo section name, for produces.")
+    note: str | None = None
+
+
+class RequirementPart(BaseModel):
+    label: str | None = Field(
+        default=None,
+        description="'Part A'. Omit unless the requirement genuinely splits into parts with "
+        "different answers.",
+    )
+    disposition: str = Field(
+        default="unassessed",
+        description="served (a review table answers it) | synthesis (needs cross-document work "
+        "over table output) | external (no table can serve it) | unassessed.",
+    )
+    reason: str | None = Field(
+        default=None, description="Why external, or what the synthesis has to do. Say it plainly."
+    )
+    links: list[RequirementLink] | None = None
+
+
+class RequirementItem(BaseModel):
+    ref: str = Field(description="The reference as the source prints it, e.g. '3.4.7'.")
+    title: str | None = None
+    position: int | None = None
+    note: str | None = Field(default=None, description="The correlation note.")
+    parts: list[RequirementPart] | None = None
+
+
 Matter = Annotated[str, Field(description="Matter name, as the user says it (case-insensitive).")]
 Table = Annotated[str, Field(description="Review table name within the matter.")]
 Column = Annotated[str, Field(description="Column name within the table.")]
@@ -197,7 +230,7 @@ ParamStatusOpt = _optional(
 )
 
 CheckFamily = Annotated[
-    Literal["prompts", "graph", "parameters", "consistency", "coverage"],
+    Literal["prompts", "graph", "parameters", "consistency", "coverage", "requirements"],
     BeforeValidator(fold),
 ]
 CoverageDimension = Annotated[
@@ -624,6 +657,74 @@ def concept_set(
         names,
         [c.model_dump() for c in columns] if columns else None,
         actor,
+    )
+
+
+@mcp.tool()
+@_tool
+def requirements_ingest(
+    matter: Matter,
+    source: Annotated[
+        str, Field(description="The specification, e.g. 'Harvey Prompt Playbook: Corporate M&A'.")
+    ],
+    items: Annotated[list[RequirementItem], Field(description="One record per numbered item.")],
+    citation: Annotated[
+        str | None,
+        Field(
+            description="What was read: filename, edition, page count. The server holds no "
+            "other reference to the document."
+        ),
+    ] = None,
+    version: Annotated[str | None, Field(description="Edition or date of the source.")] = None,
+    note: ChangeNote = None,
+    actor: Actor = None,
+) -> dict[str, Any]:
+    """Record the external specification this suite was built to satisfy.
+
+    Coverage asks whether the memo this team wrote is supported by the columns this team wrote,
+    which is a closed loop. A requirement source is the independent standard. Its real output is
+    the negative result: a requirement that no review table can serve, recorded with the reason,
+    instead of vanishing because it produced no column.
+
+    Disposition belongs to a part, not to the requirement, because requirements split: "Part A
+    needs the buyer's checklist, Part B becomes memo section IV.B" is one item with two answers.
+    Re-ingesting is safe; items match on `ref` and their parts are replaced.
+    """
+    return requirements.requirements_ingest(
+        get_conn(),
+        matter,
+        source,
+        [i.model_dump() for i in items],
+        citation,
+        version,
+        note,
+        actor,
+    )
+
+
+@mcp.tool()
+@_tool
+def requirement_set(
+    matter: Matter,
+    ref: Annotated[str, Field(description="The reference, e.g. '3.4.7'.")],
+    parts: Annotated[
+        list[RequirementPart],
+        Field(description="Replaces this requirement's parts and their links wholesale."),
+    ],
+    source: Annotated[
+        str | None, Field(description="Needed only when the matter has more than one source.")
+    ] = None,
+    title: Annotated[str | None, Field(description="Correct the title.")] = None,
+    note: ChangeNote = None,
+    actor: Actor = None,
+) -> dict[str, Any]:
+    """Decide, or revise, what one requirement resolved to and what answers it.
+
+    Parts are replaced as a unit: a disposition without its links says nothing, so a partial
+    update would leave the register stating something untrue.
+    """
+    return requirements.requirement_set(
+        get_conn(), matter, ref, [p.model_dump() for p in parts], source, title, note, actor
     )
 
 

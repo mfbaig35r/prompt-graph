@@ -19,6 +19,8 @@ EXPECTED_TOOLS = {
     "columns_find",
     "concept_set",
     "prompt_check",
+    "requirement_set",
+    "requirements_ingest",
     "suite_check",
     "impact_of_change",
     "staleness_report",
@@ -129,7 +131,7 @@ def test_database_file_uses_wal_and_env_path(tmp_path, monkeypatch):
     monkeypatch.setenv(db.ENV_VAR, str(path))
     c = db.connect()
     assert c.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
-    assert db.current_version(c) == 2
+    assert db.current_version(c) == 3
     assert c.execute("SELECT COUNT(*) FROM coverage_dimension").fetchone()[0] == 14
     assert c.execute("SELECT scope FROM standard").fetchone()[0] == "firm"
     c.close()
@@ -144,4 +146,4 @@ def test_cli_seed_demo(tmp_path, capsys):
     server.main(["--db", str(path), "--seed-demo"])
     assert "seeded 'Project Harbor' with 4 tables" in capsys.readouterr().err
     server.main(["--db", str(path), "--migrate"])
-    assert "schema version 2" in capsys.readouterr().err
+    assert "schema version 3" in capsys.readouterr().err
