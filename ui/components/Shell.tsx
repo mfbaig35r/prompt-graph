@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  BookOpen, Check, ChevronLeft, ScrollText, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
+  BookOpen, Check, ChevronLeft, ScrollText, Waypoints, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getMatter, getMatters, type Matter } from "@/lib/api";
@@ -92,10 +92,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex items-center gap-2.5 px-3.5 py-4">
           <span
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[11.5px] font-bold"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg"
             style={{ background: "var(--accent)", color: "var(--accent-ink)" }}
           >
-            pg
+            <Waypoints size={15} strokeWidth={2.25} />
           </span>
           {!collapsed && (
             <span className="min-w-0 flex-1">
