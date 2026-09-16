@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import checks as checks_mod
 from . import coverage as coverage_mod
 from . import db, overview, readiness, service
+from . import requirements as requirements_mod
 from .findings import Finding, PromptGraphError, dump
 
 app = FastAPI(title="prompt-graph read API", version="0.1.0")
@@ -251,6 +252,21 @@ def coverage(matter: str) -> dict[str, Any]:
         except PromptGraphError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         return _serialise(coverage_mod.coverage_check(c, matter))
+
+
+@app.get("/api/matters/{matter}/requirements")
+def requirements(matter: str) -> dict[str, Any]:
+    """The external specification this suite was built to satisfy, and what each item resolved to.
+
+    `external` is a deliberate boundary, not a defect: a requirement no review table can serve,
+    recorded with its reason so it is not mistaken for an oversight. It should not read as red.
+    """
+    with _conn() as c:
+        try:
+            service.get_matter(c, matter)
+        except PromptGraphError as e:
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        return _serialise(requirements_mod.register(c, matter))
 
 
 @app.get("/api/matters/{matter}/tables/{table}")

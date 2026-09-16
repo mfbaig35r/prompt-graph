@@ -205,6 +205,30 @@ export type Coverage = {
   unsourced_columns: { table: string; column: string; native_type: string; role: string | null; status: string }[];
 };
 
+export type ReqLink = { kind: "served_by" | "consumes" | "produces"; table: string | null; section: string | null; note: string | null };
+export type ReqPart = {
+  label: string | null;
+  disposition: "served" | "synthesis" | "external" | "unassessed";
+  reason: string | null;
+  links: ReqLink[];
+};
+export type Requirement = { ref: string; title: string; note: string | null; parts: ReqPart[] };
+export type Register = {
+  matter: string;
+  sources: {
+    source: string;
+    citation: string | null;
+    version: string | null;
+    note: string | null;
+    requirements: Requirement[];
+  }[];
+  counts: { served: number; synthesis: number; external: number; unassessed: number; requirements: number };
+  tables_answering_nothing: { table: string; position: number | null }[];
+};
+
+export const getRegister = (m: string) =>
+  get<Register>(`/api/matters/${encodeURIComponent(m)}/requirements`);
+
 export const getCoverage = (m: string) =>
   get<Coverage>(`/api/matters/${encodeURIComponent(m)}/coverage`);
 

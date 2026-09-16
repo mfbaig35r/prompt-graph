@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  BookOpen, Check, ChevronLeft, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
+  BookOpen, Check, ChevronLeft, ScrollText, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getMatter, getMatters, type Matter } from "@/lib/api";
@@ -79,6 +79,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const base = m ? `/m/${encodeURIComponent(m.matter)}` : "/";
   const nav = [
     { href: base, label: "Overview", icon: LayoutDashboard },
+    { href: `${base}/requirements`, label: "Requirements", icon: ScrollText },
     { href: `${base}/coverage`, label: "Correlation", icon: BookOpen },
     { href: `${base}/concepts`, label: "Consistency", icon: GitCompare },
   ];
