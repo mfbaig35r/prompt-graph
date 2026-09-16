@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft, ChevronRight, GitCompare, LayoutDashboard, Layers, Moon, Sun,
+  Check, ChevronLeft, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { getMatter, getMatters, type Matter } from "@/lib/api";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
+  const router = useRouter();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const picker = useRef<HTMLDivElement>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [names, setNames] = useState<string[]>([]);
@@ -41,6 +45,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
       alive = false;
     };
   }, [active]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!picker.current?.contains(e.target as Node)) setPickerOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPickerOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [pickerOpen]);
 
   const flip = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -138,16 +156,54 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-4 border-b px-10 py-3.5" style={{ background: "var(--bg-2)" }}>
-          <div className="min-w-0">
+          <div ref={picker} className="relative min-w-0">
             <div className="eyebrow">Matter</div>
-            <div className="truncate text-[15px] font-semibold">{m?.matter ?? "prompt-graph"}</div>
+            <button
+              onClick={() => names.length > 1 && setPickerOpen((o) => !o)}
+              disabled={names.length < 2}
+              className="flex min-w-0 items-center gap-2 rounded-md text-[15px] font-semibold disabled:cursor-default"
+              aria-haspopup={names.length > 1 ? "listbox" : undefined}
+              aria-expanded={pickerOpen}
+            >
+              <span className="truncate">{m?.matter ?? "prompt-graph"}</span>
+              {names.length > 1 && (
+                <ChevronsUpDown size={13} className="shrink-0" style={{ color: "var(--text-3)" }} />
+              )}
+            </button>
+
+            {pickerOpen && (
+              <div
+                role="listbox"
+                className="absolute left-0 top-full z-50 mt-2 w-[320px] overflow-hidden rounded-lg border py-1"
+                style={{
+                  background: "var(--surface)",
+                  borderColor: "var(--border-2)",
+                  boxShadow: "0 8px 28px rgba(0,0,0,0.35)",
+                }}
+              >
+                {names.map((n) => {
+                  const on = n === m?.matter;
+                  return (
+                    <button
+                      key={n}
+                      role="option"
+                      aria-selected={on}
+                      onClick={() => {
+                        setPickerOpen(false);
+                        router.push(`/m/${encodeURIComponent(n)}`);
+                      }}
+                      className="rowlink flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px]"
+                      style={{ color: on ? "var(--accent)" : "var(--text)" }}
+                    >
+                      <Check size={13} className="shrink-0" style={{ opacity: on ? 1 : 0 }} />
+                      <span className="truncate">{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {names.length > 1 && (
-              <span className="pill" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
-                {names.length} matters
-              </span>
-            )}
             <span className="pill" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>Local</span>
           </div>
         </header>
