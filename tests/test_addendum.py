@@ -273,6 +273,7 @@ def test_readiness_groups_by_cause(harbor_evaluated):
         "graph",
         "parameters",
         "consistency",
+        "coverage",
         "status",
         "evaluation",
         "coverage_dimensions",

@@ -7,7 +7,7 @@ import { Term } from "@/components/Tip";
 import { useLiveVersion } from "@/components/Live";
 import {GoChevron, PageHeader, Panel, Pill, statusTone} from "@/components/ui";
 import {
-  ClipboardCheck, FileText, FlaskConical, Files, LayoutGrid, ListChecks, Network, Scale,
+  BookOpen, ClipboardCheck, FileText, FlaskConical, Files, LayoutGrid, ListChecks, Network, Scale,
   CircleDashed, Variable,
 } from "lucide-react";
 
@@ -16,6 +16,7 @@ const CAUSE_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
   graph: Network,
   parameters: Variable,
   consistency: Scale,
+  coverage: BookOpen,
   status: CircleDashed,
   evaluation: FlaskConical,
   coverage_dimensions: LayoutGrid,
@@ -29,6 +30,7 @@ const CAUSE_LABEL: Record<string, string> = {
   graph: "Dependencies",
   parameters: "Parameters",
   consistency: "Consistency",
+  coverage: "Supports the memo",
   status: "Lifecycle",
   evaluation: "Evaluation",
   coverage_dimensions: "Test coverage",

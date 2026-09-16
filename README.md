@@ -200,7 +200,7 @@ names; Claude calls them from natural-language requests.
 | `columns_find` | "Which Classify columns are still in draft?" |
 | `concept_set` | "These are all the same concept" / "No, those two are different things" |
 | `prompt_check` | "Check this draft before I store it" |
-| `suite_check` | "Is anything wrong with the suite?" |
+| `suite_check` | "Is anything wrong with the suite?" / "Does it support the memo?" |
 | `impact_of_change` | "If the entity name column changes, what do I rerun?" |
 | `staleness_report` | "What's stale since the last run?" |
 | `parameter_set` | "The target's legal name is X, from the entity table, used by these tables" |

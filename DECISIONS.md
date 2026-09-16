@@ -273,6 +273,22 @@ their own provenance row, action `retire` or `revise`, carrying the changed fiel
 the failure class and the actor. A revise that also writes a version still logs once, not
 twice. Found in a real matter where nine columns were retired and all nine reasons were lost.
 
+**Coverage is a `suite_check` family (2026-09-16), carrying half its report.** Prompt lint
+tests a rule and evaluation tests a rule's answers; neither can detect the failure where every
+rule is correct and the suite still cannot support the deliverable, because that is a property
+of the set. Coverage was a separate tool, and `table_readiness` composes `suite_check`, so a
+table could read ready while supporting nothing the memo needs.
+
+Only the actionable half is carried. `COV_NOMINAL_ONLY` is every sourced assertion until a run
+exists, which is the expected state of any matter that has not run and is already reported by
+staleness; `COV_JUDGMENT_BOUNDARY` is a deliberate boundary. On a real matter those are 123 rows
+of noise against 53 of signal, so including them would bury `COV_EXTRACTION_GAP`, which is the
+one that means a hole. A matter with no outline at all reports `MEMO_OUTLINE_MISSING`.
+
+Matter-level findings are not attributed to a table: an extraction gap and a missing outline are
+holes in the suite, not in whichever table the check was scoped to, so both are suppressed when
+`table` is given. A rule feeding no assertion is attributable, and only that table's are shown.
+
 ## Contract-review extension (proposed 2026-09-15)
 
 Full delta in `requirements/prompt-graph-contract-review.md`. Nothing is built. Migration 3

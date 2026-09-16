@@ -197,7 +197,7 @@ ParamStatusOpt = _optional(
 )
 
 CheckFamily = Annotated[
-    Literal["prompts", "graph", "parameters", "consistency"],
+    Literal["prompts", "graph", "parameters", "consistency", "coverage"],
     BeforeValidator(fold),
 ]
 CoverageDimension = Annotated[

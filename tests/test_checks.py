@@ -16,6 +16,7 @@ from prompt_graph.server import (
 )
 from tests.conftest import CLEAN_CLASSIFY, CLEAN_FR, HARBOR, col
 
+ER = "Entity Register"
 INSTR = "## Shared rules\n\n- Dates as `YYYY-MM-DD`.\n- `Not addressed`, `Not stated`, `Not applicable`, `Incorporated terms`, `Unable to determine`."
 
 
@@ -32,7 +33,7 @@ def by_code(res):
 def test_demo_matter_findings(harbor):
     res = suite_check(HARBOR)
     b = by_code(res)
-    assert res["checks_run"] == ["prompts", "graph", "parameters", "consistency"]
+    assert res["checks_run"] == ["prompts", "graph", "parameters", "consistency", "coverage"]
     assert [f["evidence"]["variant"] for f in b["ENTITY_NAME_VARIANT"]] == ["Harbor Cold Chain LLC"]
     assert b["DATE_PATTERN_DIVERGENT"][0]["evidence"]["pattern"] == "MM/DD/YYYY"
     assert b["CURRENCY_PATTERN_DIVERGENT"][0]["evidence"]["style"] == "$9,999.99"
@@ -478,3 +479,36 @@ def test_clearing_a_tag_returns_it_to_the_heuristic(conn):
     concept_set(HARBOR, concept=None, names=["Governing Law", "Jurisdiction and Governing Law"])
     f = by_code(suite_check(HARBOR))["CONCEPT_NAME_VARIANT"][0]
     assert f["evidence"].get("concept") is None and f["evidence"]["heuristic"] == "token overlap"
+
+
+# --- the coverage family ---------------------------------------------------------------------
+
+
+def test_coverage_family_reports_a_suite_with_nothing_to_support(conn):
+    """A suite with no outline cannot be checked against a deliverable at all, which is the
+    single most consequential thing a check can say about it."""
+    matter_open(HARBOR, create=True)
+    table_ingest(HARBOR, "T", [col("A", 1, CLEAN_FR)], table_instructions=INSTR)
+    b = by_code(suite_check(HARBOR, checks=["coverage"]))
+    assert list(b) == ["MEMO_OUTLINE_MISSING"]
+
+
+def test_coverage_family_carries_gaps_and_unsourced_rules_only(harbor):
+    """`COV_NOMINAL_ONLY` is every sourced assertion until a run exists, and
+    `COV_JUDGMENT_BOUNDARY` is deliberate. Neither is a defect, and including them would bury
+    the two that are."""
+    codes = set(by_code(suite_check(HARBOR, checks=["coverage"])))
+    assert codes <= {"COV_EXTRACTION_GAP", "COV_UNSOURCED_COLUMN"}
+    assert "COV_NOMINAL_ONLY" not in codes and "COV_JUDGMENT_BOUNDARY" not in codes
+
+
+def test_matter_level_coverage_findings_are_not_attributed_to_a_table(harbor):
+    """An assertion no column evidences is a hole in the suite, not in whichever table you
+    happened to scope to."""
+    whole = by_code(suite_check(HARBOR, checks=["coverage"]))
+    scoped = by_code(suite_check(HARBOR, checks=["coverage"], table=ER))
+    assert "COV_EXTRACTION_GAP" in whole
+    assert "COV_EXTRACTION_GAP" not in scoped
+    # a rule feeding nothing IS attributable, and only this table's are reported
+    for f in scoped.get("COV_UNSOURCED_COLUMN", []):
+        assert f["evidence"]["table"] == ER

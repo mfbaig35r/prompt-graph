@@ -14,7 +14,7 @@ from typing import Any
 
 from . import lint
 from .constants import FALLBACK_VOCABULARY, ROLE_RANK
-from .findings import Finding
+from .findings import Finding, PromptGraphError
 from .graph import find_cycles, load_graph
 from .parameters import check_parameter
 from .refs import referenced_names
@@ -28,7 +28,7 @@ from .service import (
     table_columns,
 )
 
-CHECK_FAMILIES: tuple[str, ...] = ("prompts", "graph", "parameters", "consistency")
+CHECK_FAMILIES: tuple[str, ...] = ("prompts", "graph", "parameters", "consistency", "coverage")
 
 _REF_CODES = {"REF_UNRESOLVED", "REF_FORWARD", "REF_SELF"}
 
@@ -204,7 +204,8 @@ def suite_check(
     families = [c.strip().lower() for c in checks] if checks else list(CHECK_FAMILIES)
     unknown = [f for f in families if f not in CHECK_FAMILIES]
     families = [f for f in families if f in CHECK_FAMILIES]
-    only_table_id: int | None = int(get_table(conn, matter_id, table)["id"]) if table else None
+    only_table: sqlite3.Row | None = get_table(conn, matter_id, table) if table else None
+    only_table_id: int | None = int(only_table["id"]) if only_table is not None else None
 
     tables = conn.execute(
         "SELECT * FROM review_table WHERE matter_id=? ORDER BY position, name", (matter_id,)
@@ -687,6 +688,45 @@ def suite_check(
                     },
                 )
             )
+
+    # ---------------- coverage ----------------
+    #
+    # Only the actionable half of the coverage report belongs in a check. `COV_NOMINAL_ONLY` is
+    # every sourced assertion until a run exists, which is the expected state of any matter that
+    # has not run yet and is already reported by staleness; `COV_JUDGMENT_BOUNDARY` is a
+    # deliberate boundary, not a defect. Including either would bury the two that matter under
+    # scores of rows saying nothing is wrong. On a real matter that is 123 rows of noise against
+    # 53 of signal.
+    if "coverage" in families:
+        from .coverage import coverage_check as _coverage_check
+
+        try:
+            cov = _coverage_check(conn, m["name"])
+        except PromptGraphError:
+            # Matter-level, like an extraction gap: not attributable to one table, and firing it
+            # on every table of an outline-less matter would be noise.
+            if only_table is None:
+                findings["coverage"].append(
+                    Finding(
+                        "MEMO_OUTLINE_MISSING",
+                        "matter",
+                        matter_id,
+                        m["name"],
+                        "No memo outline is stored, so the suite cannot be checked against "
+                        "anything it has to support.",
+                        {},
+                    )
+                )
+        else:
+            for f in cov["findings"]:
+                if f.code == "COV_EXTRACTION_GAP":
+                    # An assertion no column evidences is a hole in the suite, not in one table,
+                    # so it is not attributable when the check is scoped to a table.
+                    if only_table_id is None:
+                        findings["coverage"].append(f)
+                elif f.code == "COV_UNSOURCED_COLUMN":
+                    if only_table is None or f.evidence.get("table") == only_table["name"]:
+                        findings["coverage"].append(f)
 
     counts = {fam: len(v) for fam, v in findings.items()}
     by_code: dict[str, int] = {}
