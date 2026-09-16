@@ -1052,6 +1052,30 @@ def column_revise(
         elif prompt_text is not None:
             changes["version"] = cur_pv["version"]
             changes["text_unchanged"] = True
+
+        # A metadata-only revise creates no prompt version, and `change_note` used to have
+        # nowhere to attach: retiring a column dropped the reason for retiring it, and the
+        # action went unlogged entirely. Record it against the column instead, so the why and
+        # the who survive on a change that produces no new text.
+        meta = {k: v for k, v in changes.items() if k not in ("version", "text_unchanged")}
+        if meta and new_pv is None:
+            _provenance(
+                conn,
+                "column",
+                col_id,
+                "retire" if changes.get("status") == "retired" else "revise",
+                "chat",
+                actor,
+                {
+                    **meta,
+                    **({"note": change_note} if change_note else {}),
+                    **(
+                        {"failure_class_addressed": failure_class_addressed}
+                        if failure_class_addressed
+                        else {}
+                    ),
+                },
+            )
         if new_pv is not None or rename_to is not None:
             _, unresolved = rebuild_intra_refs(conn, int(t["id"]), col_id)
             for u in unresolved:

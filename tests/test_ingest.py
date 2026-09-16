@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from prompt_graph import service
 from prompt_graph.models import ColumnRecord, TableMeta
 from prompt_graph.server import column_read, column_revise, columns_find, matter_open, table_ingest
@@ -233,3 +235,58 @@ def test_names_resolve_case_and_whitespace_insensitively(conn):
     matter_open("  Project   X ", create=True)
     table_ingest("project x", "Entities", [col("Some Column", 1, CLEAN_FR)])
     assert column_read("PROJECT X", "entities", "some column")["name"] == "Some Column"
+
+
+def _one_column(conn):
+    matter_open(M, create=True)
+    _ingest(conn, [col("A", 1, CLEAN_FR)])
+
+
+def test_metadata_only_revise_is_logged_with_its_reason(conn):
+    """A retire creates no prompt version, so `change_note` had nowhere to attach: the reason
+    for retiring a column was dropped and the action itself went unrecorded."""
+    _one_column(conn)
+    column_revise(
+        M,
+        "Entities",
+        "A",
+        status="retired",
+        change_note="Merged into Counterparty Type.",
+        failure_class_addressed="concept_conflation",
+        actor="J. Doe",
+    )
+    rows = conn.execute("SELECT actor, detail FROM provenance WHERE action='retire'").fetchall()
+    assert len(rows) == 1
+    detail = json.loads(rows[0]["detail"])
+    assert detail["note"] == "Merged into Counterparty Type."
+    assert detail["failure_class_addressed"] == "concept_conflation"
+    assert detail["status"] == "retired"
+    assert rows[0]["actor"] == "J. Doe"
+
+
+def test_metadata_change_other_than_retire_is_logged_as_revise(conn):
+    _one_column(conn)
+    column_revise(M, "Entities", "A", role="validation", change_note="Reclassified after review.")
+    (row,) = conn.execute("SELECT detail FROM provenance WHERE action='revise'").fetchall()
+    assert json.loads(row["detail"]) == {
+        "role": "validation",
+        "note": "Reclassified after review.",
+    }
+
+
+def test_text_and_metadata_in_one_call_log_once(conn):
+    """A revise that writes a version already logs it; do not log the same event twice."""
+    _one_column(conn)
+    column_revise(
+        M,
+        "Entities",
+        "A",
+        status="testing",
+        prompt_text=CLEAN_FR + "\n\nRevised wording.",
+        change_note="Reworked.",
+    )
+    actions = [
+        r["action"]
+        for r in conn.execute("SELECT action FROM provenance WHERE entity_type='column'")
+    ]
+    assert actions.count("version") == 1 and actions.count("revise") == 0

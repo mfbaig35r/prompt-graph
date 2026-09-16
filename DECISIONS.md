@@ -265,6 +265,14 @@ skill's Orchestrate reference. The Review Tables API cannot read column definiti
 (verified 2026-09), so manual ingest stays primary; it can read row results, so a result
 importer is the next P4 candidate.
 
+**Corrected 2026-09-16: a metadata-only revise is now logged.** `column_revise` writes a
+prompt version only when the text changes, and `change_note` used to be consumed only by that
+version. So a retire, a role change or a status change dropped its explanation, and wrote no
+provenance at all: the action was invisible and the reason gone. Metadata changes now write
+their own provenance row, action `retire` or `revise`, carrying the changed fields, the note,
+the failure class and the actor. A revise that also writes a version still logs once, not
+twice. Found in a real matter where nine columns were retired and all nine reasons were lost.
+
 ## Contract-review extension (proposed 2026-09-15)
 
 Full delta in `requirements/prompt-graph-contract-review.md`. Nothing is built. Migration 3
