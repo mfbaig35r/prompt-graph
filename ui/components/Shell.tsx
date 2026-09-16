@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  BookOpen, Check, ChevronLeft, ScrollText, Waypoints, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
+  BookOpen, Check, ChevronLeft, LifeBuoy, ScrollText, Waypoints, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getMatter, getMatters, type Matter } from "@/lib/api";
@@ -18,9 +18,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [names, setNames] = useState<string[]>([]);
   const [m, setM] = useState<Matter | null>(null);
+  const [remembered, setRemembered] = useState("");
 
   const active = decodeURIComponent(path.split("/")[2] ?? "");
   const activeTable = decodeURIComponent(path.split("/")[4] ?? "");
+  // /guide is not matter-scoped. Without a fallback the rail would empty out and every nav item
+  // would point at "/", so leaving the guide would mean losing the matter you came from.
+  const target = active || remembered || names[0] || "";
 
   // localStorage does not exist during SSR, so persisted UI preferences can only be read after
   // mount, and the rule's suggested alternative (subscribe to an external store) does not apply
@@ -39,12 +43,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!active) return;
+    try {
+      localStorage.setItem("pg-matter", active);
+    } catch {}
+  }, [active]);
+
+  useEffect(() => {
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setRemembered(localStorage.getItem("pg-matter") ?? "");
+  }, []);
+
+  useEffect(() => {
+    if (!target) return;
     let alive = true;
-    getMatter(active).then((x) => alive && setM(x)).catch(() => alive && setM(null));
+    getMatter(target).then((x) => alive && setM(x)).catch(() => alive && setM(null));
     return () => {
       alive = false;
     };
-  }, [active]);
+  }, [target]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -149,6 +165,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
 
         <div className={`mt-auto flex items-center gap-2 border-t px-3 py-3 ${collapsed ? "justify-center" : ""}`} style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          <Link
+            href="/guide"
+            className="grid h-7 w-7 place-items-center rounded-md"
+            style={{
+              background: path === "/guide" ? "var(--accent)" : "rgba(255,255,255,0.05)",
+              color: path === "/guide" ? "var(--accent-ink)" : "var(--rail-text-2)",
+            }}
+            aria-label="Guide"
+            title="How this fits together"
+          >
+            <LifeBuoy size={13} />
+          </Link>
           <button onClick={flip} className="grid h-7 w-7 place-items-center rounded-md" style={{ background: "rgba(255,255,255,0.05)", color: "var(--rail-text-2)" }} aria-label="Toggle theme">
             {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
           </button>
