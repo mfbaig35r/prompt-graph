@@ -4,6 +4,10 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
+# matter_export writes here by default. The exports are the corpus in text form, so
+# they carry exactly what the .db rules above exist to keep out, and *.json cannot be
+# blanket-ignored without catching package.json and friends.
+exports/
 .pytest_cache/
 dist/
 .DS_Store
