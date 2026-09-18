@@ -7,7 +7,13 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    # bash on every platform, so one set of steps works across all of them. windows-latest
+    # ships Git Bash; without this the stdio step's heredoc below would need a PowerShell
+    # rewrite, and quoting like ".[dev,ui]" would differ per shell.
+    defaults:
+      run:
+        shell: bash
     # Job level, not step level: a step's own `env:` is not in scope for that step's own
     # `if:`, and `secrets` is not available in a step `if` at all. Setting it here is what
     # makes the optional skill checkout below actually run when the secret is configured.
@@ -16,7 +22,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         python-version: ["3.11", "3.12"]
+        # Windows as one extra job rather than a full cross product. It is there to catch
+        # path and filesystem differences (connect_readonly builds a file: URI, which is
+        # where Windows bit us once), and that does not vary by Python version. Windows
+        # runners also bill at 2x, so a 2x3 matrix would be poor value for the coverage.
+        include:
+          - os: windows-latest
+            python-version: "3.12"
     steps:
       - uses: actions/checkout@v4
 
