@@ -34,6 +34,7 @@ EXPECTED_TOOLS = {
     "freshness_check",
     "table_readiness",
     "matter_export",
+    "matter_import",
 }
 
 

@@ -19,7 +19,7 @@ from .db import db_path, now
 from .findings import PromptGraphError
 from .service import effective_standard, get_matter
 
-EXPORT_FORMAT_VERSION = 1
+EXPORT_FORMAT_VERSION = 2
 
 
 def _rows(conn: sqlite3.Connection, sql: str, args: tuple[Any, ...]) -> list[dict[str, Any]]:
@@ -66,7 +66,9 @@ def build_export(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
             (mid,),
         ),
         "memo_outline": None,
+        "memo_outline_history": [],
         "coverage": None,
+        "requirements": [],
         "provenance": [],
     }
     for t in conn.execute(
@@ -137,10 +139,8 @@ def build_export(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
                 ),
             }
         )
-    outline = conn.execute(
-        "SELECT * FROM memo_outline WHERE matter_id=? AND is_current=1", (mid,)
-    ).fetchone()
-    if outline is not None:
+
+    def _outline_doc(outline: sqlite3.Row) -> dict[str, Any]:
         sections = []
         for s in conn.execute(
             "SELECT * FROM memo_section WHERE outline_id=? ORDER BY position", (int(outline["id"]),)
@@ -162,13 +162,49 @@ def build_export(conn: sqlite3.Connection, matter: str) -> dict[str, Any]:
                     }
                 )
             sections.append({**dict(s), "assertions": assertions})
-        doc["memo_outline"] = {**dict(outline), "sections": sections}
+        return {**dict(outline), "sections": sections}
+
+    for o in conn.execute("SELECT * FROM memo_outline WHERE matter_id=? ORDER BY version", (mid,)):
+        if int(o["is_current"]):
+            doc["memo_outline"] = _outline_doc(o)
+        else:
+            doc["memo_outline_history"].append(_outline_doc(o))
+    if doc["memo_outline"] is not None:
         try:
             cov = coverage.coverage_check(conn, m["name"])
             cov["findings"] = [f.to_dict() for f in cov["findings"]]
             doc["coverage"] = cov
         except PromptGraphError:
             doc["coverage"] = None
+    for src in conn.execute(
+        "SELECT * FROM requirement_source WHERE matter_id=? ORDER BY id", (mid,)
+    ):
+        sdoc: dict[str, Any] = {**dict(src), "requirements": []}
+        for r in conn.execute(
+            "SELECT * FROM requirement WHERE source_id=? ORDER BY position, id",
+            (int(src["id"]),),
+        ):
+            rdoc: dict[str, Any] = {**dict(r), "parts": []}
+            for prt in conn.execute(
+                "SELECT * FROM requirement_part WHERE requirement_id=? ORDER BY position",
+                (int(r["id"]),),
+            ):
+                rdoc["parts"].append(
+                    {
+                        **dict(prt),
+                        "links": _rows(
+                            conn,
+                            """SELECT rl.kind, rl.note, rt.name AS table_name, ms.name AS section_name
+                               FROM requirement_link rl
+                               LEFT JOIN review_table rt ON rt.id=rl.table_id
+                               LEFT JOIN memo_section ms ON ms.id=rl.section_id
+                               WHERE rl.part_id=? ORDER BY rl.id""",
+                            (int(prt["id"]),),
+                        ),
+                    }
+                )
+            sdoc["requirements"].append(rdoc)
+        doc["requirements"].append(sdoc)
     doc["provenance"] = _rows(
         conn,
         """SELECT * FROM provenance WHERE
@@ -209,6 +245,7 @@ def matter_export(
         "dependencies": len(doc["dependencies"]),
         "document_set_snapshots": len(doc["document_set_snapshots"]),
         "provenance_events": len(doc["provenance"]),
+        "requirements": sum(len(s["requirements"]) for s in doc["requirements"]),
     }
     out: dict[str, Any] = {
         "matter": doc["matter"]["name"],

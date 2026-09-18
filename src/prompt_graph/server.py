@@ -30,6 +30,7 @@ from . import (
     parameters,
     readiness,
     requirements,
+    restore,
     service,
 )
 from .constants import COVERAGE_DIMENSION_KEYS, FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
@@ -1254,6 +1255,44 @@ def matter_export(
     and as disaster recovery for the database file. Returns the path and counts.
     """
     return export.matter_export(get_conn(), matter, write_to, inline)
+
+
+@mcp.tool()
+@_tool
+def matter_import(
+    path: Annotated[
+        str | None,
+        Field(description="Path to a JSON document written by matter_export."),
+    ] = None,
+    as_matter: Annotated[
+        str | None,
+        Field(
+            description="Import under this name instead of the one in the document. Use to bring a matter onto a machine that already has one by that name."
+        ),
+    ] = None,
+    replace: Annotated[
+        bool,
+        Field(
+            description="Overwrite an existing matter of the same name. Destructive: the existing matter and all its history are deleted first."
+        ),
+    ] = False,
+    actor: Actor = None,
+) -> dict[str, Any]:
+    """Rebuild a whole matter from a matter_export document: the inverse of that tool.
+
+    Restores tables and Table Instructions, every column with its full prompt history, the
+    dependency graph, shared parameters and bindings, runs with their snapshots and evaluation
+    results, every version of the memo outline, the requirement register, and the provenance
+    log. Ids are not preserved; cross-references travel by name and are rebuilt on the way in.
+
+    This is how a matter reaches a second machine when it has no other source. A corpus
+    ingested from markdown can be rebuilt by re-ingesting; a suite authored in chat cannot,
+    and without this it exists only as one database file. Refuses by default when the matter
+    already exists: pass as_matter to import beside it, or replace to overwrite it.
+    """
+    return restore.matter_import(
+        get_conn(), path=path, as_matter=as_matter, replace=replace, actor=actor
+    )
 
 
 # ---------------------------------------------------------------------------
