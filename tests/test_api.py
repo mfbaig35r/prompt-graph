@@ -148,3 +148,20 @@ def test_the_api_connection_refuses_writes(tmp_path: Path, monkeypatch: pytest.M
             reader.execute("delete from column_def")
     finally:
         reader.close()
+
+
+def test_readonly_uri_is_well_formed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The read-only URI is built with as_uri(), not string interpolation. A Windows path
+    interpolates to `file:C:\\Users\\...`, which SQLite's URI parser rejects, and that would take
+    down the read API and the UI while leaving the MCP server (a plain path) working."""
+    target = tmp_path / "prompt-graph.db"
+    monkeypatch.setenv(db.ENV_VAR, str(target))
+    db.connect(target).close()
+    uri = f"{target.resolve().as_uri()}?mode=ro"
+    assert uri.startswith("file:///")
+    assert "\\" not in uri
+    reader = db.connect_readonly()
+    try:
+        assert reader.execute("select 1").fetchone()[0] == 1
+    finally:
+        reader.close()

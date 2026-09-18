@@ -409,11 +409,15 @@ def connect_readonly(
     business doing so; SQLite refuses writes on this connection instead. WAL allows this
     reader to run concurrently with the writer, and each statement sees the latest commit.
     """
-    target = Path(path).expanduser() if path else db_path()
+    target = (Path(path).expanduser() if path else db_path()).resolve()
     if not target.exists():
         raise FileNotFoundError(f"No prompt-graph database at {target}")
+    # Build the URI with as_uri() rather than interpolating the path. On Windows a raw path is
+    # `C:\Users\...`, and SQLite's URI parser wants forward slashes, so the interpolated form
+    # fails there: the MCP server (which opens a plain path) would work while the read API, and
+    # so the whole UI, would not start. as_uri() also percent-encodes a path containing ? or #.
     conn = sqlite3.connect(
-        f"file:{target}?mode=ro",
+        f"{target.as_uri()}?mode=ro",
         uri=True,
         isolation_level=None,
         check_same_thread=check_same_thread,
