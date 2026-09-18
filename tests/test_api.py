@@ -165,3 +165,11 @@ def test_readonly_uri_is_well_formed(tmp_path: Path, monkeypatch: pytest.MonkeyP
         assert reader.execute("select 1").fetchone()[0] == 1
     finally:
         reader.close()
+
+
+def test_now_strictly_increases() -> None:
+    """Windows' clock ticks about every 15ms, so rapid writes would otherwise share a
+    timestamp and staleness, which compares with a strict >, would miss the change."""
+    stamps = [db.now() for _ in range(500)]
+    assert len(set(stamps)) == 500
+    assert stamps == sorted(stamps)

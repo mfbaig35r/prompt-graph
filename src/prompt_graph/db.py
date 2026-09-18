@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from datetime import UTC, datetime
+import threading
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .constants import (
@@ -23,8 +24,30 @@ ENV_VAR = "PROMPT_GRAPH_DB"
 DEFAULT_PATH = Path.home() / ".prompt-graph" / "prompt-graph.db"
 
 
+_last_now = ""
+_now_lock = threading.Lock()
+
+
 def now() -> str:
-    return datetime.now(UTC).isoformat(timespec="microseconds")
+    """A timestamp that strictly increases within the process.
+
+    Staleness compares timestamps with a strict `>`: a prompt is stale if its version was
+    created after the last run started. That needs two writes in sequence to get two distinct
+    timestamps. macOS and Linux give microsecond resolution so they always do; Windows' clock
+    ticks about every 15ms, so a revision recorded straight after a run shared its timestamp
+    and read as `current` when it was stale. Silently reporting fresh is the dangerous
+    direction, so ties are broken forward by a microsecond rather than relaxing the comparison,
+    which would mark a version created in the same tick as its own run stale instead.
+    """
+    global _last_now
+    with _now_lock:
+        stamp = datetime.now(UTC).isoformat(timespec="microseconds")
+        if stamp <= _last_now:
+            stamp = (datetime.fromisoformat(_last_now) + timedelta(microseconds=1)).isoformat(
+                timespec="microseconds"
+            )
+        _last_now = stamp
+        return stamp
 
 
 def db_path() -> Path:
