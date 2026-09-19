@@ -369,6 +369,25 @@ def playbook_check(pb: Playbook) -> list[Finding]:
                     {"parent": parent.name, "overlap": round(_overlap(body, blob), 2)},
                 )
 
+    # "One source of truth per position." A preamble that names a rule and restates its position
+    # is a second place to change when the policy moves, and the two drift apart silently
+    # because nothing reads them together. Surfaced by rendering the preamble next to the rules.
+    low = pb.preamble.lower()
+    for r in pb.rules:
+        name = r.name.lower().split(" / ")[0].strip()
+        if len(name) < 6 or name not in low:
+            continue
+        i = low.index(name)
+        window = low[i : i + 240]
+        if _overlap(window, " ".join([r.standard, *r.acceptable]).lower()) >= 0.35:
+            f(
+                "PREAMBLE_RESTATES_RULE",
+                r,
+                "The preamble states a position for this rule, so the same policy is recorded "
+                "in two places and a change to one will not move the other.",
+                {"preamble_extract": pb.preamble[i : i + 160].strip()},
+            )
+
     if not _DOC_CONTROL.search(pb.preamble):
         f(
             "DOCUMENT_CONTROL_MISSING",

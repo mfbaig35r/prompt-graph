@@ -2,7 +2,9 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CircleSlash, Layers, ListChecks, ScrollText } from "lucide-react";
+import {
+  AlertTriangle, ChevronDown, ChevronRight, FileText, Layers, ListChecks, ScrollText,
+} from "lucide-react";
 import { Crumbs, Eyebrow, PageHeader, Panel, Pill, Stat } from "@/components/ui";
 import { getPlaybook, type PlaybookDetail, type PlaybookRule } from "@/lib/api";
 
@@ -33,11 +35,89 @@ function Ladder({ r }: { r: PlaybookRule }) {
   );
 }
 
+/** The five fields, verbatim. Legal prose needs the width, so this renders inside the row
+ *  rather than in a sidebar: the point is to read what the rule actually says. */
+function RuleBody({ r }: { r: PlaybookRule }) {
+  const conventions = [
+    r.rule_id && ["Rule ID", r.rule_id],
+    r.depends_on.length > 0 && [
+      "Depends on",
+      r.depends_on.map((d) => `${d.ref}${d.reason ? ` (${d.reason})` : ""}`).join(" · "),
+    ],
+    r.precedence && ["Precedence", r.precedence],
+    r.on_exhaustion && ["On exhaustion", r.on_exhaustion],
+    r.source && ["Source", r.source + (r.reviewed ? ` · reviewed ${r.reviewed}` : "")],
+  ].filter(Boolean) as [string, string][];
+
+  return (
+    <div className="border-t px-5 pb-5 pt-4" style={{ background: "var(--bg-2)" }}>
+      <div className="grid grid-cols-1 gap-x-10 gap-y-5 lg:grid-cols-2">
+        <Field label="Standard position" body={r.standard} />
+        <Field label={`Acceptable deviations · ${r.acceptable.length}`} items={r.acceptable} />
+        <Field label={`Unacceptable deviations · ${r.unacceptable.length}`} items={r.unacceptable} />
+        <Field label="Guidance" body={r.guidance} />
+        {r.workflow.length > 0 && <Field label="Workflow actions" items={r.workflow} />}
+      </div>
+
+      {conventions.length > 0 && (
+        <div className="mt-5 flex flex-wrap gap-x-6 gap-y-1.5 border-t pt-3">
+          {conventions.map(([k, v]) => (
+            <span key={k} className="text-[12px]">
+              <span className="eyebrow mb-0 mr-1.5 inline">{k}</span>
+              <span className="mono" style={{ color: "var(--text-2)" }}>{v}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {r.findings.length > 0 && (
+        <div className="mt-5 border-t pt-3">
+          <Eyebrow icon={AlertTriangle}>Findings on this rule · {r.findings.length}</Eyebrow>
+          <div className="mt-2 space-y-2">
+            {r.findings.map((f, i) => (
+              <div key={i} className="text-[12.5px]">
+                <span className="mono mr-2 text-[10.5px]" style={{ color: "var(--warn)" }}>{f.code}</span>
+                <span style={{ color: "var(--text-2)" }}>{f.observation}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, body, items }: { label: string; body?: string; items?: string[] }) {
+  const empty = !body && !(items && items.length);
+  return (
+    <div className="min-w-0">
+      <div className="eyebrow mb-1.5">{label}</div>
+      {empty ? (
+        <div className="text-[12.5px] italic" style={{ color: "var(--text-3)" }}>not stated</div>
+      ) : items ? (
+        <ul className="space-y-2">
+          {items.map((x, i) => (
+            <li key={i} className="text-[12.5px] leading-[1.6]" style={{ color: "var(--text-2)" }}>{x}</li>
+          ))}
+        </ul>
+      ) : (
+        <div
+          className="whitespace-pre-wrap text-[12.5px] leading-[1.6]"
+          style={{ color: "var(--text-2)" }}
+        >
+          {body}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PlaybookPage() {
   const file = decodeURIComponent(useParams<{ file: string }>().file);
   const [d, setD] = useState<PlaybookDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [preambleOpen, setPreambleOpen] = useState(false);
 
   useEffect(() => {
     getPlaybook(file).then(setD).catch((e) => setErr(String(e)));
@@ -51,7 +131,12 @@ export default function PlaybookPage() {
   const c = d.counts;
   const byCode = new Map<string, number>();
   for (const f of d.findings) byCode.set(f.code, (byCode.get(f.code) ?? 0) + 1);
-  const sel = d.rules.find((r) => r.name === open) ?? null;
+  const toggle = (n: string) =>
+    setOpen((s) => {
+      const next = new Set(s);
+      if (!next.delete(n)) next.add(n);
+      return next;
+    });
 
   return (
     <main className="mx-auto w-full max-w-[1560px] px-10 py-10">
@@ -59,7 +144,14 @@ export default function PlaybookPage() {
       <PageHeader
         title={d.name}
         description="Five fields per rule are the platform's whole schema. Identity, dependencies, precedence, absence remediation, exhaustion and provenance live inside Guidance by convention, where nothing can validate them. This reads both."
-        right={<Pill tone={c.findings ? "warn" : "ok"}>{c.findings} findings</Pill>}
+        right={
+          <span className="flex items-center gap-2">
+            <button className="btn" onClick={() => setOpen(open.size ? new Set() : new Set(d.rules.map((r) => r.name)))}>
+              {open.size ? "Collapse all" : "Expand all"}
+            </button>
+            <Pill tone={c.findings ? "warn" : "ok"}>{c.findings} findings</Pill>
+          </span>
+        }
       />
 
       <div className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -80,100 +172,82 @@ export default function PlaybookPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel
-          title="Rules"
-          icon={Layers}
-          right={
-            <span className="flex items-center gap-3 text-[11px]" style={{ color: "var(--text-3)" }}>
-              <span className="flex items-center gap-1.5"><i className="h-[7px] w-5 rounded-sm" style={{ background: "var(--accent)", opacity: 0.85 }} /> standard</span>
-              <span className="flex items-center gap-1.5"><i className="h-[7px] w-5 rounded-sm" style={{ background: "var(--ok)", opacity: 0.85 }} /> acceptable</span>
-              <span className="flex items-center gap-1.5"><i className="h-[7px] w-5 rounded-sm" style={{ background: "var(--stop)", opacity: 0.85 }} /> unacceptable</span>
-            </span>
-          }
-        >
-          {d.rules.map((r) => (
-            <button
-              key={r.name}
-              onClick={() => setOpen(open === r.name ? null : r.name)}
-              className="rowlink flex w-full items-center gap-4 border-b px-5 py-2.5 text-left last:border-b-0"
-              data-on={open === r.name}
-            >
-              <span className="mono w-6 shrink-0 text-[11px]" style={{ color: "var(--text-3)" }}>{r.position}</span>
-              <span className="min-w-0 flex-1 truncate text-[12.5px]">{r.name}</span>
-              {r.required && <Pill>required</Pill>}
-              <Ladder r={r} />
-              <span
-                className="mono w-7 shrink-0 text-right text-[11px]"
-                style={{ color: r.findings.length ? "var(--warn)" : "var(--text-3)" }}
+      <div className="grid grid-cols-1 gap-7 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0 space-y-7">
+          {d.preamble && (
+            <Panel title="AI Guidance (preamble)" icon={FileText}>
+              <button
+                onClick={() => setPreambleOpen((o) => !o)}
+                className="rowlink flex w-full items-center gap-2 px-5 py-2.5 text-left text-[12.5px]"
               >
-                {r.findings.length || ""}
-              </span>
-            </button>
-          ))}
-        </Panel>
-
-        <div className="space-y-7">
-          <Panel title={`Findings · ${d.findings.length}`} icon={AlertTriangle}>
-            {[...byCode.entries()]
-              .sort((a, b) => b[1] - a[1])
-              .map(([code, n]) => (
-                <div key={code} className="flex items-baseline gap-3 border-b px-5 py-2.5 last:border-b-0">
-                  <span className="mono w-7 shrink-0 text-right text-[11.5px]" style={{ color: "var(--warn)" }}>{n}</span>
-                  <span className="mono min-w-0 flex-1 break-all text-[11px]" style={{ color: "var(--text-2)" }}>{code}</span>
-                </div>
-              ))}
-          </Panel>
-
-          {sel && (
-            <Panel title={sel.name} icon={ScrollText}>
-              <div className="space-y-3 px-5 py-3.5 text-[12.5px]">
-                <Field label="Standard position" body={sel.standard} />
-                <Field label={`Acceptable · ${sel.acceptable.length}`} items={sel.acceptable} />
-                <Field label={`Unacceptable · ${sel.unacceptable.length}`} items={sel.unacceptable} />
-                {sel.workflow.length > 0 && <Field label="Workflow actions" items={sel.workflow} />}
-                <Field label="Guidance" body={sel.guidance} />
-              </div>
-              {sel.findings.length > 0 && (
-                <div className="border-t">
-                  <Eyebrow icon={CircleSlash} className="px-5 pt-3">On this rule</Eyebrow>
-                  {sel.findings.map((f, i) => (
-                    <div key={i} className="px-5 pb-2.5 pt-1">
-                      <div className="mono text-[10.5px]" style={{ color: "var(--warn)" }}>{f.code}</div>
-                      <div className="text-[12.5px]" style={{ color: "var(--text-2)" }}>{f.observation}</div>
-                    </div>
-                  ))}
+                {preambleOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                <span style={{ color: "var(--text-2)" }}>
+                  {preambleOpen ? "Hide" : "Show"} the document-level guidance every rule inherits
+                </span>
+              </button>
+              {preambleOpen && (
+                <div
+                  className="whitespace-pre-wrap border-t px-5 py-4 text-[12.5px] leading-[1.6]"
+                  style={{ color: "var(--text-2)", background: "var(--bg-2)" }}
+                >
+                  {d.preamble}
                 </div>
               )}
             </Panel>
           )}
-          {!sel && (
-            <p className="px-1 text-[12.5px]" style={{ color: "var(--text-3)" }}>
-              Select a rule to read its five fields and what the checks found in it.
-            </p>
-          )}
+
+          <Panel
+            title="Rules"
+            icon={Layers}
+            right={
+              <span className="flex items-center gap-3 text-[11px]" style={{ color: "var(--text-3)" }}>
+                <span className="flex items-center gap-1.5"><i className="h-[7px] w-5 rounded-sm" style={{ background: "var(--accent)", opacity: 0.85 }} /> standard</span>
+                <span className="flex items-center gap-1.5"><i className="h-[7px] w-5 rounded-sm" style={{ background: "var(--ok)", opacity: 0.85 }} /> acceptable</span>
+                <span className="flex items-center gap-1.5"><i className="h-[7px] w-5 rounded-sm" style={{ background: "var(--stop)", opacity: 0.85 }} /> unacceptable</span>
+              </span>
+            }
+          >
+            {d.rules.map((r) => {
+              const isOpen = open.has(r.name);
+              return (
+                <div key={r.name} className="border-b last:border-b-0">
+                  <button
+                    onClick={() => toggle(r.name)}
+                    className="rowlink flex w-full items-center gap-3 px-5 py-2.5 text-left"
+                    data-on={isOpen}
+                  >
+                    <span className="shrink-0" style={{ color: "var(--text-3)" }}>
+                      {isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                    </span>
+                    <span className="mono w-6 shrink-0 text-[11px]" style={{ color: "var(--text-3)" }}>{r.position}</span>
+                    <span className="min-w-0 flex-1 truncate text-[12.5px]">{r.name}</span>
+                    {r.required && <Pill>required</Pill>}
+                    <Ladder r={r} />
+                    <span
+                      className="mono w-7 shrink-0 text-right text-[11px]"
+                      style={{ color: r.findings.length ? "var(--warn)" : "var(--text-3)" }}
+                    >
+                      {r.findings.length || ""}
+                    </span>
+                  </button>
+                  {isOpen && <RuleBody r={r} />}
+                </div>
+              );
+            })}
+          </Panel>
         </div>
+
+        <Panel title={`Findings · ${d.findings.length}`} icon={AlertTriangle} className="self-start">
+          {[...byCode.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([code, n]) => (
+              <div key={code} className="flex items-baseline gap-3 border-b px-5 py-2.5 last:border-b-0">
+                <span className="mono w-7 shrink-0 text-right text-[11.5px]" style={{ color: "var(--warn)" }}>{n}</span>
+                <span className="mono min-w-0 flex-1 break-all text-[11px]" style={{ color: "var(--text-2)" }}>{code}</span>
+              </div>
+            ))}
+        </Panel>
       </div>
     </main>
-  );
-}
-
-function Field({ label, body, items }: { label: string; body?: string; items?: string[] }) {
-  const empty = !body && !(items && items.length);
-  return (
-    <div>
-      <div className="eyebrow mb-1">{label}</div>
-      {empty ? (
-        <div className="text-[12.5px]" style={{ color: "var(--text-3)" }}>not stated</div>
-      ) : items ? (
-        <ul className="space-y-1">
-          {items.map((x, i) => (
-            <li key={i} style={{ color: "var(--text-2)" }}>{x}</li>
-          ))}
-        </ul>
-      ) : (
-        <div className="whitespace-pre-wrap" style={{ color: "var(--text-2)" }}>{body}</div>
-      )}
-    </div>
   );
 }

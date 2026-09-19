@@ -300,3 +300,28 @@ def test_a_rule_still_using_its_own_former_name_is_a_different_defect() -> None:
     # the genuine cross-reference from the other rule is still reported separately
     cross = [f for f in d["findings"] if f.code == "REFERENCE_TO_RENAMED_RULE"]
     assert len(cross) == 1 and cross[0].subject_name == "Representative's Adherence"
+
+
+def test_a_preamble_restating_a_rules_position_is_two_sources_of_truth() -> None:
+    with_pre = CLEAN.replace(
+        "Absent a stated path on exhaustion, flag to the client and do not concede further.",
+        "Absent a stated path on exhaustion, flag to the client. Key provisions: Limitation of "
+        "Liability (always add a provision limiting the breaching party to direct damages "
+        "arising out of any unauthorised use or disclosure).",
+        1,
+    )
+    fs = [
+        f
+        for f in pbm.playbook_check(pbm.parse_markdown(with_pre))
+        if f.code == "PREAMBLE_RESTATES_RULE"
+    ]
+    assert len(fs) == 1 and fs[0].subject_name == "Limitation of Liability"
+    # a preamble that merely mentions the rule without restating it is not the same defect
+    mention = CLEAN.replace(
+        "Absent a stated path on exhaustion, flag to the client and do not concede further.",
+        "Absent a stated path on exhaustion, escalate. See Limitation of Liability for the ladder.",
+        1,
+    )
+    assert "PREAMBLE_RESTATES_RULE" not in {
+        f.code for f in pbm.playbook_check(pbm.parse_markdown(mention))
+    }
