@@ -5,16 +5,22 @@
 *Building Legal Playbooks: A Reference* — what a playbook should contain.
 *Building Playbooks for Harvey: Architecture and Authoring Format* — what the platform can hold.
 **Date:** 2026-09-18
-**Status:** proposal. Nothing here is built.
+**Status:** partly built. G.9 steps 1 to 3 shipped: a parser for the five fields and the
+Guidance conventions, twelve mechanical checks plus `LADDER_GAP`, rename detection across two
+exports, and a view. The schema delta in G.8 is not built and nothing here touches the database.
 
-**Revised 2026-09-18**, same day, after the architecture document landed. Three claims in the
+**Revised twice on 2026-09-18.** Second revision adds G.2.2 and G.2.3, measuring a revised
+version of the same playbook, and closes half of G.10.2 with the result. First revision, after
+the architecture document landed: Three claims in the
 first version were wrong and are corrected in place rather than quietly dropped: that the
 unevaluable-gate defect was unnamed (G.5), that playbook dependencies cannot be recovered by a
 parser (G.7), and that precedence conflicts resolve arbitrarily with nothing to detect them
 (G.6). The second is the one that matters, because it changes what this would cost to build.
 
-**Source material.** One MNDA playbook, 38 issues, audited 2026-09-18. Client-identifying content
-is deliberately absent; the structural findings are what generalise.
+**Source material.** Two versions of one MNDA playbook: the 38-rule original audited
+2026-09-18, and the 39-rule revision produced against the authoring format afterwards. Both are
+measured here, because the pair answers a question a single document could not. Client-identifying
+content is deliberately absent; the structural findings are what generalise.
 
 ---
 
@@ -81,6 +87,8 @@ convention applied inconsistently is worse than none.
 
 ## G.2 The measured shape of a real playbook
 
+### G.2.1 Before the format existed
+
 | | |
 | --- | --- |
 | Issues | 38 |
@@ -104,6 +112,55 @@ Three counts taken directly against the authoring checklist:
 | No entry consisting only of "reasonable edits" | fails **14 times** |
 | No Guidance sentence substituting prose for structure | fails **4 times** |
 | Unacceptable field populated | fails on **33 of 38** rules |
+
+### G.2.2 After a revision against the format
+
+The same playbook, revised once the authoring format and the audit existed. Measured by the
+checker in G.4, not by hand.
+
+| | Original | Revised |
+| --- | --- | --- |
+| Rules | 38 | 39 |
+| Carrying a Rule ID | 0 | **39 of 39** |
+| With an unacceptable position | 5 | **24** |
+| With an acceptable position | 32 | 36 |
+| Carrying `On exhaustion` | 0 | **6** |
+| Workflow actions | 3 | 6 |
+| Document sections (control block, appendices) | 0 | **10** |
+| Entries saying only "reasonable edits" | 11 | **0** |
+| Prose standing in for structure | 4 | **0** |
+| Parent and child holding the same content | 4 | **0** |
+| Preamble restating a rule's position | 2 | **0** |
+| **Total findings** | **114** | **26** |
+
+Three things in that table matter more than the totals.
+
+**The identifier convention was adopted completely or not at all.** 0 of 38, then 39 of 39. A
+convention with an enforcement story behind it gets followed; the same convention offered as a
+suggestion had been followed by nobody. That is the argument in G.3 with a measurement attached.
+
+**The consolidation happened.** The four Non-Solicitation children were folded into their parent,
+which removes the duplication, removes the unevaluable gates that lived in their Guidance, and
+removes four subagents at review time. All three follow from one edit, which is the case for
+treating consolidation as the first remedy rather than a tidying step (G.5).
+
+**One finding survived.** `LADDER_GAP` on the duration rule is present in both: accept up to
+three years, refuse an indefinite term, and four years is still addressed by neither. It was
+found by hand in the original audit and not closed by the revision, which is a fair illustration
+of the difference between finding a defect and fixing one.
+
+### G.2.3 What the second document cost to read
+
+Worth recording, because it is the argument for getting one early. The revision is a *structured*
+document where the original was a flat list: Heading 1 for Document Control, Rules and
+appendices, Heading 2 for rule names. The parser treated any unrecognised heading as a rule and
+produced ten phantom rules, then reported a missing identifier for each of them. It also dropped
+the text beneath those headings, so the document-control check fired on a document that opens
+with a document control block: a false absence the tool had manufactured itself.
+
+Both were fixed by partitioning on fields rather than heading levels, which are unreliable across
+exports in a way fields are not. Neither would have been found by any amount of further work on
+the first document.
 
 ## G.3 The job
 
@@ -267,18 +324,22 @@ The reference leads its structure-at-scale part with overlays and precedence. Th
 has one client, one contract type, one jurisdiction. Building the overlay engine first would be
 building for an estate that does not exist.
 
-1. **Parse the five fields and the Guidance conventions.** The conventions are the primary parse
-   target, not the position fields: identity, dependencies, precedence, exhaustion and provenance
-   all live inside Guidance.
-2. **The 12 mechanical checks.** No new schema, findings on a real document immediately.
-3. **Rule identity and rename detection**, which nothing else provides.
+1. ~~**Parse the five fields and the Guidance conventions.**~~ **Built.** The conventions are the
+   primary parse target, not the position fields: identity, dependencies, precedence, exhaustion
+   and provenance all live inside Guidance.
+2. ~~**The 12 mechanical checks.**~~ **Built**, plus `LADDER_GAP`, which G.4 had filed under
+   "needs typed data" and which turned out to need only the observation that a number on one
+   side and "indefinite" on the other cannot be adjacent.
+3. ~~**Rule identity and rename detection.**~~ **Built** as a diff across two exports, stateless,
+   because the question an author has mid-revision is what the edit just broke.
 4. **Ordered fallbacks and absence remediation**, the two conventions with the most direct effect
    on what a review actually does.
 5. **`GATE_UNEVALUABLE` and superiority**, needing `evaluation_context` and typed positions.
 6. **Overlays**, when there is a second client.
 
-Steps 1 to 3 are about a week and produce findings on day one, since the checklist already fails
-14 times on "reasonable edits" alone.
+Steps 1 to 3 took a day rather than the week estimated, because the conventions made the parse
+target smaller than expected and the checks needed no schema. Step 4 is where the schema work
+starts.
 
 **A pressure worth respecting throughout.** Because every rule costs a subagent, consolidation is
 usually the right remedy and decomposition usually the wrong one. prompt-graph's normalising
@@ -294,9 +355,16 @@ and its children" belongs in the first tranche of checks, not as an afterthought
    preferred, an authorised fallback, or a concession made under deadline pressure. Those look
    identical afterwards, and the distinction stops being survivable once a playbook clears matters
    automatically. The `Source:` convention is where this lives. Zero of 38 rules carry one.
-2. **Whether the conventions get adopted.** Everything in G.3 and G.7 assumes authors write the
-   `Depends on:` line. If they do not, prompt-graph is checking an empty graph. The honest test is
-   whether playbook two, written after the authoring format exists, carries the conventions.
+2. **Whether the conventions get adopted. Partly answered, and the split is the interesting
+   part.** The revision carries a Rule ID on all 39 rules and an exhaustion path on 6. It carries
+   `Depends on:` on **none**, `Precedence:` on **none**, and `Source:` on **none**.
+
+   So the conventions that describe a rule *in isolation* were adopted completely, and the three
+   that describe a rule's *relationship to something else* were not adopted at all. That is a
+   sharper result than either "adopted" or "ignored". An identifier can be written while looking
+   at one rule; a dependency, a precedence pair and an authority each require knowing something
+   the rule does not contain. Every one of those is also exactly what no checker can supply, so
+   the graph remains empty for the reason hardest to fix by tooling.
 3. **Whether `evaluation_context` is maintainable.** It encodes a third party's architecture from
    published material. A stale declaration makes `GATE_UNEVALUABLE` produce confident nonsense in
    both directions.
