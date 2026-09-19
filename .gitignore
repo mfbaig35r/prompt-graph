@@ -24,6 +24,9 @@ exports/
 # here. requirements/prompt-graph-playbook-rules.md cites both as external sources.
 *.skill
 requirements/building-legal-playbooks-reference.md
+# The authoring references are standalone documents with their own life. Repo docs are
+# all named prompt-graph-*.md, so this pattern cannot catch one by accident.
+requirements/Building *.md
 .pytest_cache/
 dist/
 .DS_Store
