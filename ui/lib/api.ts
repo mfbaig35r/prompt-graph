@@ -7,6 +7,7 @@ export type Finding = {
   subject_name: string | null;
   observation: string;
   evidence: Record<string, unknown>;
+  remedy?: string | null;
 };
 
 export type TableRow = {

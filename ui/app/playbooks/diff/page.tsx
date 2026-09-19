@@ -106,6 +106,12 @@ export default function PlaybookDiffPage() {
                   <div className="mt-0.5 text-[12.5px]" style={{ color: "var(--text-2)" }}>
                     {f.observation}
                   </div>
+                  {f.remedy && (
+                    <div className="mt-0.5 text-[12.5px]" style={{ color: "var(--text-3)" }}>
+                      <span style={{ color: "var(--accent)" }}>Where it goes: </span>
+                      {f.remedy}
+                    </div>
+                  )}
                 </div>
               ))}
             </Panel>

@@ -367,3 +367,29 @@ def test_a_categorical_pair_has_no_interval_to_leave_open() -> None:
         1,
     )
     assert "LADDER_GAP" not in {f.code for f in pbm.playbook_check(pbm.parse_markdown(cat))}
+
+
+def test_every_playbook_finding_says_where_the_missing_thing_goes() -> None:
+    """A remedy names a location and a shape. It never drafts a position, which is why the
+    findings whose answer is a legal judgment say so instead of inventing one."""
+    pb = pbm.parse_markdown(CLEAN.replace("Rule ID: mnda.liability.cap", "", 1))
+    fs = pbm.playbook_check(pb)
+    assert fs and all(f.remedy for f in fs)
+    unacceptable = pbm.playbook_check(
+        pbm.parse_markdown(
+            CLEAN.replace(
+                "#### Unacceptable Positions\nUncappedAny formulation leaving liability uncapped for ordinary breach.",
+                "",
+                1,
+            )
+        )
+    )
+    remedy = next(f.remedy for f in unacceptable if f.code == "UNACCEPTABLE_NOT_STATED")
+    assert "judgment about this deal" in remedy
+
+
+def test_a_finding_from_another_family_carries_no_remedy() -> None:
+    """The field is optional and the playbook family is the only one that populates it."""
+    from prompt_graph.findings import Finding
+
+    assert Finding("X", "rule", None, "n", "obs").remedy is None

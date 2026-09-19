@@ -91,6 +91,12 @@ function RuleBody({ r }: { r: PlaybookRule }) {
               <div key={i} className="text-[12.5px]">
                 <span className="mono mr-2 text-[10.5px]" style={{ color: "var(--warn)" }}>{f.code}</span>
                 <span style={{ color: "var(--text-2)" }}>{f.observation}</span>
+                {f.remedy && (
+                  <span className="mt-0.5 block pl-1" style={{ color: "var(--text-3)" }}>
+                    <span style={{ color: "var(--accent)" }}>Where it goes: </span>
+                    {f.remedy}
+                  </span>
+                )}
               </div>
             ))}
           </div>

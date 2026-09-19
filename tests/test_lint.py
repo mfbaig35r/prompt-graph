@@ -242,7 +242,11 @@ def test_finding_shape_has_one_sentence_and_no_advice():
         "subject_name",
         "observation",
         "evidence",
+        "remedy",
     }
+    # remedy exists for the playbook family, which knows an authoring format well enough to say
+    # where a missing thing goes. Nothing here does, so it stays empty rather than guessing.
+    assert f.remedy is None
     assert f.observation.count(". ") == 0 and f.observation.endswith(".")
     for word in ("should", "must", "recommend", "fix", "critical", "severe"):
         assert word not in f.observation.lower()

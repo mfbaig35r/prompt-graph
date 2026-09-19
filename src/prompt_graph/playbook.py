@@ -286,6 +286,38 @@ def parse_docx(path: str | Path) -> Playbook:
 
 _THIN_RULE_COUNT = 60
 
+# Where the missing thing goes, in the authoring format's own terms. Never what it should say:
+# the content of an unacceptable position is a judgment about a deal, and where that is the
+# honest answer the remedy says so rather than inventing one.
+#
+# These encode a format defined in a document held elsewhere. If that document changes, they
+# become confidently wrong, which is the same exposure specification freshness describes.
+_REMEDY: dict[str, str] = {
+    "RULE_ID_MISSING": "A dotted path on the first line of Guidance, stable across rewording.",
+    "RULE_ID_DUPLICATE": "One of the two needs a different path. Whichever is already referenced elsewhere keeps the one it has.",
+    "ABSENCE_REMEDIATION_MISSING": "A closing line on the standard position, with the wording supplied rather than described.",
+    "NO_ACCEPTABLE_DEVIATION": "An acceptable deviation, or a deliberate record that everything here escalates.",
+    "UNACCEPTABLE_NOT_STATED": "The unacceptable field. What belongs in it is a judgment about this deal.",
+    "DEVIATION_UNSPECIFIED": "Name the edits that are pre-authorised, or say what 'reasonable' excludes.",
+    "PROSE_SUBSTITUTES_FOR_STRUCTURE": "Consolidate the two rules into one, restate the condition against something observable in the contract, or escalate instead. Consolidation is right most often.",
+    "DEPENDS_ON_UNRESOLVED": "Correct the path, or add the rule it names.",
+    "DEPENDENCY_REASON_MISSING": "A reason in brackets after the path: trade-off, definition, aggregate exposure or ordering.",
+    "PRECEDENCE_ONE_SIDED": "The reciprocal sentence in the other rule. Both halves are needed, because a subagent reads one rule.",
+    "PARENT_CHILD_DUPLICATION": "Fold the child into the parent's fallback as numbered caveats, which also removes a subagent.",
+    "PREAMBLE_RESTATES_RULE": "Remove the position from the preamble. The rule is the source of truth.",
+    "LADDER_GAP": "Either the acceptable ceiling moves up or the unacceptable floor comes down to meet it. Which of the two is a judgment about this deal.",
+    "DOCUMENT_CONTROL_MISSING": "A control block in the preamble: version, owner, steward, effective date, review triggers.",
+    "EXHAUSTION_DEFAULT_MISSING": "A default in the preamble, with explicit paths only on the rules that differ from it.",
+    "RULE_COUNT_HIGH": "Consolidate rules that split a single concept. Each rule costs a subagent at review time.",
+    # diff
+    "RULE_RENAMED": "Nothing, if the rename was intended. A Rule ID would make the next one a fact rather than an inference.",
+    "RULE_ID_CHANGED": "Restore the former path, or update every reference to it.",
+    "REFERENCE_BROKEN": "Correct the path, or add the rule it names.",
+    "REFERENCE_TO_RENAMED_RULE": "Update the naming rule to the new name.",
+    "RENAMED_RULE_SELF_REFERENCE": "Update the rule's own text to the name it now has.",
+    "RULE_REMOVED": "Remove what still references it, or restore it.",
+}
+
 
 def playbook_check(pb: Playbook) -> list[Finding]:
     out: list[Finding] = []
@@ -299,6 +331,7 @@ def playbook_check(pb: Playbook) -> list[Finding]:
                 r.name if r else pb.name,
                 obs,
                 ev or {},
+                _REMEDY.get(code),
             )
         )
 
@@ -578,7 +611,7 @@ def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
     findings: list[Finding] = []
 
     def f(code: str, name: str, obs: str, ev: dict[str, Any]) -> None:
-        findings.append(Finding(code, "rule", ev.get("rule_id"), name, obs, ev))
+        findings.append(Finding(code, "rule", ev.get("rule_id"), name, obs, ev, _REMEDY.get(code)))
 
     for b, a, score in renamed:
         f(

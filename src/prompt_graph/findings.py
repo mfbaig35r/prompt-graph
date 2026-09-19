@@ -1,7 +1,13 @@
 """The one output shape every tool shares.
 
-A finding is a factual observation. It never contains advice, a severity adjective, or a
-suggested rewrite; Claude supplies the interpretation in the skill's voice.
+A finding is a factual observation. It never contains a severity adjective or a suggested
+rewrite; Claude supplies the interpretation in the skill's voice.
+
+`remedy` is the one narrow exception and was added deliberately. Where a check knows the
+authoring format, it can say *where* the missing thing goes and *in what shape* without saying
+what it should contain: "a dotted path on the first line of Guidance" is a fact about the
+format, not advice about a deal. A remedy never drafts a position, and where the honest answer
+is that a person decides, it says so. Most findings have none.
 """
 
 from __future__ import annotations
@@ -18,6 +24,8 @@ class Finding:
     subject_name: str
     observation: str  # one factual sentence
     evidence: dict[str, Any] = field(default_factory=dict)
+    # where the missing thing goes, never what it should say. See the module docstring.
+    remedy: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

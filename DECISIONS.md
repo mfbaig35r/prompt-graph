@@ -346,3 +346,26 @@ signal, not table count.
 - `sqlite3` from the standard library; migrations are SQL scripts in `db.py` applied in a
   transaction and recorded in `schema_version`.
 - `ruff` ignores E501 only; long finding strings are the reason.
+
+## Findings may say where a missing thing goes, never what it should say
+
+**2026-09-18.** `Finding` gains an optional `remedy`, populated only by the playbook family.
+
+The original rule was that a finding never contains advice, and it was right about the thing it
+was protecting: the tool must not decide what an unacceptable position should say, because that
+is a legal judgment about a specific deal. But the rule was doing two jobs. Where a check knows
+an authoring format, it can say *where* the missing thing goes and *in what shape* without
+touching content. "A dotted path on the first line of Guidance" is a fact about the format, not
+a view about the transaction.
+
+So the boundary is drawn there: a remedy names a location and a shape. It never drafts a
+position, and where the honest answer is that a person decides, it says so
+(`UNACCEPTABLE_NOT_STATED` reads "the unacceptable field, and what belongs in it is a judgment
+about this deal"). The field is optional and defaults to `None`, so no other family has to
+invent one.
+
+Two known costs. A remedy line is what people read instead of the observation, so the tool's
+reasoning becomes less visible; the mitigation is that remedies are short, structural, and
+silent where they cannot be structural. And they encode a format defined in a document held
+outside this repository, so they go stale when it changes, which is the exposure
+`prompt-graph-specification-freshness.md` describes.
