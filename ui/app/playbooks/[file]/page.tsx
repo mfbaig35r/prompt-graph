@@ -3,8 +3,9 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  AlertTriangle, ChevronDown, ChevronRight, FileText, Layers, ListChecks, ScrollText,
+  AlertTriangle, ChevronDown, ChevronRight, FileText, Layers, ListChecks, ScrollText, Share2,
 } from "lucide-react";
+import { PlaybookGraph } from "@/components/PlaybookGraph";
 import { Crumbs, Eyebrow, PageHeader, Panel, Pill, Stat } from "@/components/ui";
 import { getPlaybook, type Deviation, type PlaybookDetail, type PlaybookRule } from "@/lib/api";
 
@@ -234,6 +235,10 @@ export default function PlaybookPage() {
               )}
             </Panel>
           )}
+
+          <Panel title="How the rules relate" icon={Share2} bodyClassName="px-5 py-4">
+            <PlaybookGraph rules={d.rules} />
+          </Panel>
 
           <Panel
             title="Rules"
