@@ -393,3 +393,63 @@ def test_a_finding_from_another_family_carries_no_remedy() -> None:
     from prompt_graph.findings import Finding
 
     assert Finding("X", "rule", None, "n", "obs").remedy is None
+
+
+# --- a structured document, not a flat list of rules ------------------------
+
+STRUCTURED = """
+# Document Control
+Version 4. Owner: Head of Commercial. Effective date 2026-09-18. On exhaustion, escalate.
+
+# Rules
+
+## Limitation of Liability
+#### Standard Position
+ADD the below provision if not already addressed: "The breaching party shall be liable only
+for direct damages arising out of any unauthorised disclosure."
+#### Acceptable Positions
+Mutual capACCEPT a mutual cap at two times fees paid.
+#### Unacceptable Positions
+UncappedAny formulation leaving liability uncapped.
+### Guidance
+Rule ID: mnda.liability.cap
+### Required
+Yes
+
+# Appendix A — Change log
+## Contradictions resolved
+The general terminology conflict was resolved in favour of the specific rule.
+"""
+
+
+def test_a_heading_with_no_fields_is_a_section_not_a_rule() -> None:
+    """A structured playbook has Document Control, Rules and appendices as headings. Treating
+    any unrecognised heading as a rule invented phantom rules and reported a missing Rule ID
+    for each of them."""
+    pb = pbm.parse_markdown(STRUCTURED, "v4")
+    assert [r.name for r in pb.rules] == ["Limitation of Liability"]
+    assert [n for n, _ in pb.sections] == [
+        "Document Control",
+        "Rules",
+        "Appendix A — Change log",
+        "Contradictions resolved",
+    ]
+    assert pb.rules[0].position == 1
+
+
+def test_a_document_control_section_is_read_not_missed() -> None:
+    """The section's text was being dropped, so the check reported an absence that was a
+    false positive: the block was there and the parser could not see it."""
+    codes = {f.code for f in pbm.playbook_check(pbm.parse_markdown(STRUCTURED, "v4"))}
+    assert "DOCUMENT_CONTROL_MISSING" not in codes
+    assert "EXHAUSTION_DEFAULT_MISSING" not in codes
+
+
+def test_curly_punctuation_is_not_a_rename() -> None:
+    """Word substitutes a curly apostrophe on save. Three of four reported renames between two
+    real versions were that, which buries the one real rename in typography."""
+    v1 = TWO_RULES.replace("Representative's Adherence", "Representative's Adherence")
+    v2 = TWO_RULES.replace("Representative's Adherence", "Representative’s Adherence")
+    d = pbm.playbook_diff(pbm.parse_markdown(v1, "v1"), pbm.parse_markdown(v2, "v2"))
+    assert d["counts"]["renamed"] == 0
+    assert not [f for f in d["findings"] if f.code == "RULE_RENAMED"]

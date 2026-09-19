@@ -101,6 +101,21 @@ class Rule:
     guidance: str = ""
     workflow: list[str] = field(default_factory=list)
     required: bool | None = None
+    # text sitting under the heading before any field heading. For a rule this is usually
+    # empty; for a document section it is the whole of the content, which is how the two are
+    # told apart after parsing.
+    prose: list[str] = field(default_factory=list)
+
+    @property
+    def has_fields(self) -> bool:
+        return bool(
+            self.standard
+            or self.acceptable
+            or self.unacceptable
+            or self.guidance
+            or self.workflow
+            or self.required is not None
+        )
 
     # parsed out of guidance, per the authoring conventions
     rule_id: str | None = None
@@ -121,6 +136,15 @@ class Playbook:
     name: str
     preamble: str = ""
     rules: list[Rule] = field(default_factory=list)
+    # headings that turned out to be document structure rather than rules: Document Control,
+    # Rules, an appendix. Kept rather than discarded, because their text is where a document
+    # control block lives and a check that cannot see it reports a false absence.
+    sections: list[tuple[str, str]] = field(default_factory=list)
+
+    @property
+    def front_matter(self) -> str:
+        """Everything the document says outside a rule."""
+        return "\n".join([self.preamble, *(body for _, body in self.sections)])
 
 
 def split_label(text: str) -> tuple[str | None, str]:
@@ -174,7 +198,10 @@ def _build(blocks: list[tuple[bool, str]], name: str) -> Playbook:
         if in_preamble and current is None:
             pb.preamble += ("\n" if pb.preamble else "") + "\n".join(body)
             return
-        if current is None or slot is None:
+        if current is None:
+            return
+        if slot is None:
+            current.prose.extend(body)
             return
         if slot == "standard":
             current.standard = "\n".join(body)
@@ -209,7 +236,18 @@ def _build(blocks: list[tuple[bool, str]], name: str) -> Playbook:
         slot = None
     flush()
 
+    # A heading with none of the five fields under it is not a rule, whatever its level: it is
+    # a section of the document. Levels are unreliable across exports, the fields are not.
+    real, sections = [], []
     for r in pb.rules:
+        if r.has_fields:
+            real.append(r)
+        else:
+            sections.append((r.name, "\n".join(r.prose)))
+    pb.rules = real
+    pb.sections = sections
+    for i, r in enumerate(pb.rules, start=1):
+        r.position = i
         _parse_guidance(r)
     return pb
 
@@ -494,16 +532,16 @@ def playbook_check(pb: Playbook) -> list[Finding]:
                 {"preamble_extract": pb.preamble[i : i + 160].strip()},
             )
 
-    if not _DOC_CONTROL.search(pb.preamble):
+    if not _DOC_CONTROL.search(pb.front_matter):
         f(
             "DOCUMENT_CONTROL_MISSING",
             None,
             "The playbook carries no document control block, so there is no way to say what "
             "policy governed a review performed on a given date.",
-            {"preamble_chars": len(pb.preamble)},
+            {"front_matter_chars": len(pb.front_matter)},
         )
 
-    if not re.search(r"exhaustion", pb.preamble, re.I) and not any(
+    if not re.search(r"exhaustion", pb.front_matter, re.I) and not any(
         r.on_exhaustion for r in pb.rules
     ):
         f(
@@ -541,6 +579,25 @@ def _overlap(a: str, b: str) -> float:
 
 _RENAME_THRESHOLD = 0.6
 
+# Word substitutes curly punctuation on save, so the same rule name round-trips as a different
+# string. Reporting that as a rename is noise, and worse, it buries the real renames in a list
+# of typography. Names are compared with punctuation folded; the displayed name is untouched.
+_PUNCT = str.maketrans(
+    {
+        "\u2019": "'",
+        "\u2018": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u00a0": " ",
+    }
+)
+
+
+def _norm_name(name: str) -> str:
+    return " ".join(name.translate(_PUNCT).lower().split())
+
 
 def _jaccard(a: str, b: str) -> float:
     ta = {w for w in re.findall(r"[a-z0-9]+", a.lower()) if len(w) > 3}
@@ -571,9 +628,9 @@ def _pair(
             b_left.remove(b)
             a_left.remove(a)
 
-    by_name = {r.name.lower(): r for r in a_left}
+    by_name = {_norm_name(r.name): r for r in a_left}
     for b in list(b_left):
-        if (a := by_name.pop(b.name.lower(), None)) is not None:
+        if (a := by_name.pop(_norm_name(b.name), None)) is not None:
             matched.append((b, a))
             b_left.remove(b)
             a_left.remove(a)
@@ -622,7 +679,7 @@ def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
             {"from": b.name, "to": a.name, "match": round(score, 2), "by": "content"},
         )
     for b, a in matched:
-        if b.name.lower() != a.name.lower():
+        if _norm_name(b.name) != _norm_name(a.name):
             f(
                 "RULE_RENAMED",
                 a.name,
@@ -639,11 +696,13 @@ def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
             )
 
     # what the edit broke: references in the new document that no longer resolve
-    old_names = {r.name.lower() for r in before.rules}
-    new_names = {r.name.lower() for r in after.rules}
+    old_names = {_norm_name(r.name) for r in before.rules}
+    new_names = {_norm_name(r.name) for r in after.rules}
     new_ids = {r.rule_id for r in after.rules if r.rule_id}
-    renamed_from = {b.name.lower(): a.name for b, a, _ in renamed}
-    renamed_from |= {b.name.lower(): a.name for b, a in matched if b.name.lower() != a.name.lower()}
+    renamed_from = {_norm_name(b.name): a.name for b, a, _ in renamed}
+    renamed_from |= {
+        _norm_name(b.name): a.name for b, a in matched if _norm_name(b.name) != _norm_name(a.name)
+    }
 
     for r, kind, target in _references(after):
         if kind == "depends_on" and target not in new_ids:
@@ -657,16 +716,18 @@ def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
     # a reference to a name that existed before and does not now. A rule still using its own
     # former name is a different defect from a rule pointing at another one, and conflating them
     # sends a reader looking for a cross-reference that was never there.
-    renamed_to = {a.name.lower(): b.name.lower() for b, a, _ in renamed}
+    renamed_to = {_norm_name(a.name): _norm_name(b.name) for b, a, _ in renamed}
     renamed_to |= {
-        a.name.lower(): b.name.lower() for b, a in matched if b.name.lower() != a.name.lower()
+        _norm_name(a.name): _norm_name(b.name)
+        for b, a in matched
+        if _norm_name(b.name) != _norm_name(a.name)
     }
     for r in after.rules:
         text = " ".join(filter(None, [r.precedence, r.guidance]))
         for gone in old_names - new_names:
             if not gone or gone not in text.lower():
                 continue
-            if renamed_to.get(r.name.lower()) == gone:
+            if renamed_to.get(_norm_name(r.name)) == gone:
                 f(
                     "RENAMED_RULE_SELF_REFERENCE",
                     r.name,
@@ -684,7 +745,9 @@ def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
                 )
 
     for b in removed:
-        still = [r.name for r in after.rules if b.name.lower() in (r.precedence or "").lower()]
+        still = [
+            r.name for r in after.rules if _norm_name(b.name) in _norm_name(r.precedence or "")
+        ]
         f(
             "RULE_REMOVED",
             b.name,
@@ -705,7 +768,7 @@ def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
             "added": len(added),
             "removed": len(removed),
             "renamed": len(renamed)
-            + sum(1 for b, a in matched if b.name.lower() != a.name.lower()),
+            + sum(1 for b, a in matched if _norm_name(b.name) != _norm_name(a.name)),
             "changed": len(changed),
             "unchanged": len(matched) - len(changed),
         },
