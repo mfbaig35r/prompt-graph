@@ -26,6 +26,7 @@ EXPECTED_TOOLS = {
     "staleness_report",
     "parameter_set",
     "playbook_check",
+    "playbook_diff",
     "run_record",
     "eval_record",
     "failures_summary",

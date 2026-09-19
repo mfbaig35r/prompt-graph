@@ -405,3 +405,189 @@ def _overlap(a: str, b: str) -> float:
     ta = {w for w in re.findall(r"[a-z0-9]+", a) if len(w) > 3}
     tb = {w for w in re.findall(r"[a-z0-9]+", b) if len(w) > 3}
     return len(ta & tb) / len(ta) if ta else 0.0
+
+
+# ---------------------------------------------------------------------------
+# Rename detection. Harvey keys rules by name, and the conventions reference rules by id or by
+# name in prose, so a rename silently breaks every reference pointing at the old one. Nothing in
+# the platform detects that. This compares two exports rather than requiring a stored history,
+# because the question an author has mid-revision is what the edit just broke.
+# ---------------------------------------------------------------------------
+
+_RENAME_THRESHOLD = 0.6
+
+
+def _jaccard(a: str, b: str) -> float:
+    ta = {w for w in re.findall(r"[a-z0-9]+", a.lower()) if len(w) > 3}
+    tb = {w for w in re.findall(r"[a-z0-9]+", b.lower()) if len(w) > 3}
+    return len(ta & tb) / len(ta | tb) if (ta or tb) else 0.0
+
+
+def _body(r: Rule) -> str:
+    return " ".join([r.standard, *r.acceptable, *r.unacceptable])
+
+
+def _pair(
+    before: Playbook, after: Playbook
+) -> tuple[list[tuple[Rule, Rule]], list[tuple[Rule, Rule, float]], list[Rule], list[Rule]]:
+    """Match rules across two versions: by id, then by name, then by content for the remainder.
+
+    The third pass exists because rule ids are a convention nobody has adopted yet. Where ids
+    are present the match is exact and a rename is a fact; where they are absent it is inferred
+    from content and reported with its score, never as a certainty."""
+    b_left, a_left = list(before.rules), list(after.rules)
+    matched: list[tuple[Rule, Rule]] = []
+
+    by_id = {r.rule_id: r for r in a_left if r.rule_id}
+    for b in list(b_left):
+        if b.rule_id and b.rule_id in by_id:
+            a = by_id.pop(b.rule_id)
+            matched.append((b, a))
+            b_left.remove(b)
+            a_left.remove(a)
+
+    by_name = {r.name.lower(): r for r in a_left}
+    for b in list(b_left):
+        if (a := by_name.pop(b.name.lower(), None)) is not None:
+            matched.append((b, a))
+            b_left.remove(b)
+            a_left.remove(a)
+
+    renamed: list[tuple[Rule, Rule, float]] = []
+    for b in list(b_left):
+        best, score = None, 0.0
+        for a in a_left:
+            s = _jaccard(_body(b), _body(a))
+            if s > score:
+                best, score = a, s
+        if best is not None and score >= _RENAME_THRESHOLD:
+            renamed.append((b, best, score))
+            b_left.remove(b)
+            a_left.remove(best)
+    return matched, renamed, b_left, a_left
+
+
+def _references(pb: Playbook) -> list[tuple[Rule, str, str]]:
+    """Every outward reference a rule makes: (rule, kind, target). Dependencies point at ids,
+    precedence points at names, because that is how each convention is written."""
+    out: list[tuple[Rule, str, str]] = []
+    for r in pb.rules:
+        for ref, _ in r.depends_on:
+            out.append((r, "depends_on", ref))
+        if r.precedence:
+            for other in pb.rules:
+                if other is not r and other.name.lower() in r.precedence.lower():
+                    out.append((r, "precedence", other.name))
+    return out
+
+
+def playbook_diff(before: Playbook, after: Playbook) -> dict[str, Any]:
+    matched, renamed, removed, added = _pair(before, after)
+    findings: list[Finding] = []
+
+    def f(code: str, name: str, obs: str, ev: dict[str, Any]) -> None:
+        findings.append(Finding(code, "rule", ev.get("rule_id"), name, obs, ev))
+
+    for b, a, score in renamed:
+        f(
+            "RULE_RENAMED",
+            a.name,
+            f"'{b.name}' appears to have been renamed to '{a.name}'. Rules are keyed by name, "
+            "so any reference to the old name no longer resolves.",
+            {"from": b.name, "to": a.name, "match": round(score, 2), "by": "content"},
+        )
+    for b, a in matched:
+        if b.name.lower() != a.name.lower():
+            f(
+                "RULE_RENAMED",
+                a.name,
+                f"'{b.name}' was renamed to '{a.name}', identified by a stable Rule ID.",
+                {"from": b.name, "to": a.name, "by": "rule_id", "rule_id": a.rule_id},
+            )
+        if b.rule_id and a.rule_id and b.rule_id != a.rule_id:
+            f(
+                "RULE_ID_CHANGED",
+                a.name,
+                f"The Rule ID changed from '{b.rule_id}' to '{a.rule_id}', which breaks every "
+                "reference to the old one.",
+                {"from": b.rule_id, "to": a.rule_id, "rule_id": a.rule_id},
+            )
+
+    # what the edit broke: references in the new document that no longer resolve
+    old_names = {r.name.lower() for r in before.rules}
+    new_names = {r.name.lower() for r in after.rules}
+    new_ids = {r.rule_id for r in after.rules if r.rule_id}
+    renamed_from = {b.name.lower(): a.name for b, a, _ in renamed}
+    renamed_from |= {b.name.lower(): a.name for b, a in matched if b.name.lower() != a.name.lower()}
+
+    for r, kind, target in _references(after):
+        if kind == "depends_on" and target not in new_ids:
+            f(
+                "REFERENCE_BROKEN",
+                r.name,
+                f"'{r.name}' depends on '{target}', which is not a Rule ID in this version.",
+                {"kind": kind, "target": target, "rule_id": r.rule_id},
+            )
+
+    # a reference to a name that existed before and does not now. A rule still using its own
+    # former name is a different defect from a rule pointing at another one, and conflating them
+    # sends a reader looking for a cross-reference that was never there.
+    renamed_to = {a.name.lower(): b.name.lower() for b, a, _ in renamed}
+    renamed_to |= {
+        a.name.lower(): b.name.lower() for b, a in matched if b.name.lower() != a.name.lower()
+    }
+    for r in after.rules:
+        text = " ".join(filter(None, [r.precedence, r.guidance]))
+        for gone in old_names - new_names:
+            if not gone or gone not in text.lower():
+                continue
+            if renamed_to.get(r.name.lower()) == gone:
+                f(
+                    "RENAMED_RULE_SELF_REFERENCE",
+                    r.name,
+                    f"'{r.name}' was renamed but its own text still calls it '{gone}'.",
+                    {"former_name": gone, "rule_id": r.rule_id},
+                )
+            else:
+                f(
+                    "REFERENCE_TO_RENAMED_RULE",
+                    r.name,
+                    f"'{r.name}' still names '{gone}', which no longer exists under that name"
+                    + (f" (now '{renamed_from[gone]}')" if gone in renamed_from else "")
+                    + ".",
+                    {"names": gone, "now": renamed_from.get(gone), "rule_id": r.rule_id},
+                )
+
+    for b in removed:
+        still = [r.name for r in after.rules if b.name.lower() in (r.precedence or "").lower()]
+        f(
+            "RULE_REMOVED",
+            b.name,
+            f"'{b.name}' is no longer in the playbook."
+            + (f" Still referenced by {len(still)} rule(s)." if still else ""),
+            {"referenced_by": still, "rule_id": b.rule_id},
+        )
+
+    changed = [
+        (b, a)
+        for b, a in matched
+        if _body(b) != _body(a) or b.guidance != a.guidance or b.required != a.required
+    ]
+    return {
+        "before": before.name,
+        "after": after.name,
+        "counts": {
+            "added": len(added),
+            "removed": len(removed),
+            "renamed": len(renamed)
+            + sum(1 for b, a in matched if b.name.lower() != a.name.lower()),
+            "changed": len(changed),
+            "unchanged": len(matched) - len(changed),
+        },
+        "added": [r.name for r in added],
+        "removed": [r.name for r in removed],
+        "renamed": [{"from": b.name, "to": a.name, "match": round(s, 2)} for b, a, s in renamed],
+        "changed": [a.name for _, a in changed],
+        "finding_count": len(findings),
+        "findings": findings,
+    }

@@ -1261,6 +1261,13 @@ def matter_export(
     return export.matter_export(get_conn(), matter, write_to, inline)
 
 
+def _load_playbook(path: str) -> playbook_mod.Playbook:
+    target = Path(path.strip()).expanduser()
+    if target.suffix.lower() in (".md", ".txt"):
+        return playbook_mod.parse_markdown(target.read_text(), name=target.stem)
+    return playbook_mod.parse_docx(target)
+
+
 @mcp.tool()
 @_tool
 def playbook_check(
@@ -1285,12 +1292,7 @@ def playbook_check(
     Reads a document and returns findings. Nothing is stored, and no legal judgment is made:
     whether a finding matters is a question about a specific deal.
     """
-    target = path.strip()
-    pb = (
-        playbook_mod.parse_markdown(Path(target).expanduser().read_text(), name=Path(target).stem)
-        if target.lower().endswith((".md", ".txt"))
-        else playbook_mod.parse_docx(target)
-    )
+    pb = _load_playbook(path)
     findings = playbook_mod.playbook_check(pb)
     return {
         "playbook": pb.name,
@@ -1305,6 +1307,32 @@ def playbook_check(
         "finding_count": len(findings),
         "findings": dump(findings),
     }
+
+
+@mcp.tool()
+@_tool
+def playbook_diff(
+    before: Annotated[str, Field(description="Path to the earlier playbook export.")],
+    after: Annotated[str, Field(description="Path to the later playbook export.")],
+) -> dict[str, Any]:
+    """Compare two playbook exports and report what the revision changed and what it broke.
+
+    Harvey keys rules by name and has no stable identifier, so renaming a rule silently breaks
+    every reference pointing at the old name: dependencies written as Rule IDs, and precedence
+    statements written in prose. Nothing in the platform detects that, and a precedence
+    statement is only load-bearing when both rules carry it, so half of one is invisible.
+
+    Matches rules by Rule ID where the convention has been adopted, by name otherwise, and by
+    content for whatever remains, which is the real case today because no playbook yet carries
+    ids. A content match is reported with its score and never as a certainty.
+
+    Returns added, removed, renamed and changed rules, plus findings for the references the
+    revision left dangling.
+    """
+    b, a = _load_playbook(before), _load_playbook(after)
+    out = playbook_mod.playbook_diff(b, a)
+    out["findings"] = dump(out["findings"])
+    return out
 
 
 @mcp.tool()

@@ -195,3 +195,108 @@ def test_a_missing_or_unreadable_file_is_refused(tmp_path) -> None:
     junk.write_text("not a zip")
     with pytest.raises(PromptGraphError, match="not a readable"):
         pbm.parse_docx(junk)
+
+
+# --- rename detection -------------------------------------------------------
+
+TWO_RULES = """
+# AI Guidance
+Document control: version 1, owner Legal. On exhaustion, escalate to the client.
+
+## General Terminology
+#### Standard Position
+Throughout the Agreement change "cause" to "direct".
+#### Acceptable Positions
+Narrow scopeACCEPT the change limited to the confidentiality covenants.
+#### Unacceptable Positions
+No changeLeaving "best efforts" unmodified throughout.
+### Guidance
+Rule ID: mnda.terms.general
+
+These are defaults. A specific rule may displace them where it expressly says so.
+
+Precedence: the exception is Representative's Adherence.
+### Required
+Yes
+
+## Representative's Adherence
+#### Standard Position
+ADD the below provision if not already addressed: "Recipient shall direct its Representatives
+to comply with the confidentiality obligations of this Agreement."
+#### Acceptable Positions
+Cause standardACCEPT "cause" in place of "direct" where the counterparty insists.
+#### Unacceptable Positions
+No obligationNo obligation on Representatives at all.
+### Guidance
+Rule ID: mnda.reps.adherence
+
+This rule is an express exception to General Terminology, which otherwise requires "direct".
+### Required
+Yes
+"""
+
+
+def test_a_stable_id_makes_a_rename_a_fact() -> None:
+    after = TWO_RULES.replace("## General Terminology", "## Drafting Conventions", 1)
+    d = pbm.playbook_diff(pbm.parse_markdown(TWO_RULES, "v1"), pbm.parse_markdown(after, "v2"))
+    renames = [f for f in d["findings"] if f.code == "RULE_RENAMED"]
+    assert len(renames) == 1
+    assert renames[0].evidence["by"] == "rule_id"
+    assert d["counts"]["renamed"] == 1 and d["counts"]["removed"] == 0
+
+
+def test_without_an_id_a_rename_is_inferred_from_content_and_scored() -> None:
+    """The real case today: no playbook has adopted rule ids, so identity comes from content."""
+    v1 = TWO_RULES.replace("Rule ID: mnda.terms.general\n", "")
+    v2 = v1.replace("## General Terminology", "## Drafting Conventions", 1)
+    d = pbm.playbook_diff(pbm.parse_markdown(v1, "v1"), pbm.parse_markdown(v2, "v2"))
+    renames = [f for f in d["findings"] if f.code == "RULE_RENAMED"]
+    assert len(renames) == 1
+    assert renames[0].evidence["by"] == "content"
+    assert renames[0].evidence["match"] >= 0.6
+
+
+def test_a_rename_surfaces_the_reference_it_broke() -> None:
+    """The whole point. The other rule still names the old one in prose, and nothing in Harvey
+    would notice."""
+    after = TWO_RULES.replace("## General Terminology", "## Drafting Conventions", 1)
+    d = pbm.playbook_diff(pbm.parse_markdown(TWO_RULES, "v1"), pbm.parse_markdown(after, "v2"))
+    broken = [f for f in d["findings"] if f.code == "REFERENCE_TO_RENAMED_RULE"]
+    assert len(broken) == 1
+    assert broken[0].evidence["now"] == "Drafting Conventions"
+    assert "Representative" in broken[0].subject_name
+
+
+def test_a_changed_rule_id_breaks_its_dependents() -> None:
+    after = TWO_RULES.replace("Rule ID: mnda.terms.general", "Rule ID: mnda.drafting.general", 1)
+    d = pbm.playbook_diff(pbm.parse_markdown(TWO_RULES, "v1"), pbm.parse_markdown(after, "v2"))
+    assert "RULE_ID_CHANGED" in {f.code for f in d["findings"]}
+
+
+def test_a_removed_rule_still_referenced() -> None:
+    after = TWO_RULES.split("## Representative's Adherence")[0]
+    d = pbm.playbook_diff(pbm.parse_markdown(TWO_RULES, "v1"), pbm.parse_markdown(after, "v2"))
+    removed = [f for f in d["findings"] if f.code == "RULE_REMOVED"]
+    assert len(removed) == 1 and removed[0].subject_name == "Representative's Adherence"
+
+
+def test_an_unchanged_playbook_diffs_to_nothing() -> None:
+    d = pbm.playbook_diff(pbm.parse_markdown(TWO_RULES, "v1"), pbm.parse_markdown(TWO_RULES, "v2"))
+    assert d["finding_count"] == 0
+    assert d["counts"] == {"added": 0, "removed": 0, "renamed": 0, "changed": 0, "unchanged": 2}
+
+
+def test_a_rule_still_using_its_own_former_name_is_a_different_defect() -> None:
+    """Conflating this with a broken cross-reference sends a reader looking for a pointer that
+    never existed."""
+    v1 = TWO_RULES.replace("These are defaults.", "These are the General Terminology defaults.", 1)
+    v2 = v1.replace("## General Terminology", "## Drafting Conventions", 1)
+    d = pbm.playbook_diff(pbm.parse_markdown(v1, "v1"), pbm.parse_markdown(v2, "v2"))
+    codes = {f.code for f in d["findings"]}
+    assert "RENAMED_RULE_SELF_REFERENCE" in codes
+    self_ref = next(f for f in d["findings"] if f.code == "RENAMED_RULE_SELF_REFERENCE")
+    assert self_ref.subject_name == "Drafting Conventions"
+    assert self_ref.evidence["former_name"] == "general terminology"
+    # the genuine cross-reference from the other rule is still reported separately
+    cross = [f for f in d["findings"] if f.code == "REFERENCE_TO_RENAMED_RULE"]
+    assert len(cross) == 1 and cross[0].subject_name == "Representative's Adherence"
