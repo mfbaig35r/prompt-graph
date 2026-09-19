@@ -430,17 +430,30 @@ def playbooks() -> dict[str, Any]:
     return {"directory": str(d), "playbooks": out}
 
 
+def _parse_playbook(target: Path) -> playbook_mod.Playbook:
+    try:
+        if target.suffix.lower() in (".md", ".txt"):
+            return playbook_mod.parse_markdown(target.read_text(), name=target.stem)
+        return playbook_mod.parse_docx(target)
+    except PromptGraphError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+# Declared before /api/playbooks/{name}, which would otherwise capture "diff" as a filename.
+@app.get("/api/playbooks/diff")
+def playbook_diff(before: str, after: str) -> dict[str, Any]:
+    b = _parse_playbook(_playbook_path(before))
+    a = _parse_playbook(_playbook_path(after))
+    out = playbook_mod.playbook_diff(b, a)
+    out["findings"] = dump(out["findings"])
+    out["before_file"], out["after_file"] = before, after
+    return out
+
+
 @app.get("/api/playbooks/{name}")
 def playbook_detail(name: str) -> dict[str, Any]:
     target = _playbook_path(name)
-    try:
-        pb = (
-            playbook_mod.parse_markdown(target.read_text(), name=target.stem)
-            if target.suffix.lower() in (".md", ".txt")
-            else playbook_mod.parse_docx(target)
-        )
-    except PromptGraphError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
+    pb = _parse_playbook(target)
     findings = playbook_mod.playbook_check(pb)
     by_rule: dict[str, list[dict[str, Any]]] = {}
     for f in findings:

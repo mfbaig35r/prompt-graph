@@ -285,3 +285,21 @@ export const getPlaybooks = () =>
 
 export const getPlaybook = (file: string) =>
   get<PlaybookDetail>(`/api/playbooks/${encodeURIComponent(file)}`);
+
+export type PlaybookDiff = {
+  before: string;
+  after: string;
+  before_file: string;
+  after_file: string;
+  counts: { added: number; removed: number; renamed: number; changed: number; unchanged: number };
+  added: string[];
+  removed: string[];
+  renamed: { from: string; to: string; match: number }[];
+  changed: string[];
+  findings: Finding[];
+};
+
+export const getPlaybookDiff = (before: string, after: string) =>
+  get<PlaybookDiff>(
+    `/api/playbooks/diff?before=${encodeURIComponent(before)}&after=${encodeURIComponent(after)}`,
+  );

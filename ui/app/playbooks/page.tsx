@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BookMarked, FileText } from "lucide-react";
+import { BookMarked, FileText, GitCompare } from "lucide-react";
 import { PageHeader, Panel } from "@/components/ui";
 import { getPlaybooks } from "@/lib/api";
 
@@ -31,7 +31,11 @@ export default function PlaybooksPage() {
       <PageHeader
         title="Playbooks"
         description="Read from a directory and checked against the authoring format. Nothing here is stored: each is parsed when you open it, so the file on disk is always what you are looking at."
-        right={<span className="mono text-[11.5px]" style={{ color: "var(--text-3)" }}>{d.directory}</span>}
+        right={
+          <Link href="/playbooks/diff" className="btn flex items-center gap-1.5">
+            <GitCompare size={13} /> Compare two versions
+          </Link>
+        }
       />
       <Panel title="Files" icon={BookMarked}>
         {d.playbooks.length === 0 && (
