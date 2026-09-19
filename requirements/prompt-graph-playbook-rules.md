@@ -1,14 +1,15 @@
 # prompt-graph — playbook rules
 
-**Extends:** `prompt-graph-contract-review.md` (B), `building-legal-playbooks-reference.md`
+**Extends:** `prompt-graph-contract-review.md` (B)
+**External source:** *Building Legal Playbooks: A Reference*, held outside this repository
 **Date:** 2026-09-18
 **Status:** proposal. Nothing here is built.
 
-Doc B asked whether the model extends to contract review and answered from first principles. The
-reference doc set out what a playbook should contain. This is the delta between them, written
-after auditing a real playbook, and it exists because the audit changed the answer in two places:
-it produced a finding class neither document anticipated, and it inverted the build order the
-reference implies.
+Doc B asked whether the model extends to contract review and answered from first principles. A
+separate reference, cited above and deliberately not held here, set out what a playbook should
+contain. This is the delta between them, written after auditing a real playbook, and it exists
+because the audit changed the answer in two places: it produced a finding class neither document
+anticipated, and it inverted the build order the reference implies.
 
 **Source material.** One MNDA playbook, 38 issues, audited 2026-09-18. Client-identifying content
 is deliberately absent from this document; the structural findings are what generalise.
@@ -193,8 +194,8 @@ deliberate; see G.7.
 
 ## G.7 Build order, and why not overlays
 
-The reference doc leads Part 3 with overlays and precedence, and from that document alone they
-look like the first thing to build. The audited playbook says otherwise: one client, one contract
+The reference leads its structure-at-scale part with overlays and precedence, and from that
+document alone they look like the first thing to build. The audited playbook says otherwise: one client, one contract
 type, one jurisdiction, no layers. Building the overlay engine first would be building for an
 estate that does not exist.
 

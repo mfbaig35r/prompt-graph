@@ -18,6 +18,12 @@ exports/
 *.xls
 *.pdf
 *.pptx
+
+# Authoring material that lives outside this repo. The playbook reference is its own
+# document with its own life, and the skill belongs with the other skills rather than
+# here. requirements/prompt-graph-playbook-rules.md cites both as external sources.
+*.skill
+requirements/building-legal-playbooks-reference.md
 .pytest_cache/
 dist/
 .DS_Store
