@@ -73,6 +73,21 @@ _PROSE_GATE = re.compile(
 # An entry that says nothing but "reasonable edits".
 _ONLY_REASONABLE = re.compile(r"^(?:ok to\s+)?(?:accept|allow)?\s*reasonable edits?\.?$", re.I)
 
+# A ladder with a finite ceiling on one side and only an unbounded floor on the other leaves
+# everything between them unaddressed. Accept up to three years, refuse an indefinite term, and
+# a counterparty asking for four has fallen through a hole the rule does not know it has.
+_BOUNDED = re.compile(
+    r"\b(?:up to|no more than|not exceeding|maximum of|at most)?\s*"
+    r"(?:\d+|\(\d+\))\s*\(?\d*\)?\s*(year|month|week|day)s?\b"
+    r"|\$\s?[\d,]{4,}",
+    re.I,
+)
+_UNBOUNDED = re.compile(
+    r"\b(indefinite\w*|perpetual|perpetuity|unlimited|uncapped|forever|"
+    r"no (?:time )?limit|without limit)\b",
+    re.I,
+)
+
 _DOC_CONTROL = re.compile(r"\b(version|owner|effective date|steward|review trigger)\b", re.I)
 
 
@@ -370,6 +385,26 @@ def playbook_check(pb: Playbook) -> list[Finding]:
                     "cannot tell what the other needs.",
                     {"ref": ref},
                 )
+
+    for r in pb.rules:
+        if not (r.acceptable and r.unacceptable):
+            continue
+        acc = " ".join(r.acceptable)
+        una = " ".join(r.unacceptable)
+        ceiling = _BOUNDED.search(acc)
+        # only fires where the two sides are measured on the same scale: a categorical pair
+        # (advice of counsel against opinion of counsel) has no interval to leave open
+        if ceiling and _UNBOUNDED.search(una) and not _BOUNDED.search(una):
+            f(
+                "LADDER_GAP",
+                r,
+                "The acceptable position has a finite ceiling and the only unacceptable "
+                "position is unbounded, so a value between the two has no stated treatment.",
+                {
+                    "ceiling": ceiling.group(0).strip(),
+                    "unbounded": _UNBOUNDED.search(una).group(0),
+                },
+            )
 
     # precedence is only load-bearing when both sides carry it: a subagent reads one rule
     for r in pb.rules:

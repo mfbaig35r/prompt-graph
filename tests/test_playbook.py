@@ -336,3 +336,34 @@ def test_a_preamble_restating_a_rules_position_is_two_sources_of_truth() -> None
     assert "PREAMBLE_RESTATES_RULE" not in {
         f.code for f in pbm.playbook_check(pbm.parse_markdown(mention))
     }
+
+
+def test_a_finite_ceiling_against_an_unbounded_floor_leaves_a_hole() -> None:
+    """Accept up to three years, refuse an indefinite term, and four years is unaddressed."""
+    dur = CLEAN.replace(
+        "Mutual capACCEPT a mutual cap at two times fees paid in the preceding twelve months.",
+        "Up to 3 yearsACCEPT up to 3 years or until end of the Agreement term.",
+        1,
+    ).replace(
+        "UncappedAny formulation leaving liability uncapped for ordinary breach.",
+        "Indefinite termLanguage suggesting that the term is indefinite.",
+        1,
+    )
+    fs = [f for f in pbm.playbook_check(pbm.parse_markdown(dur)) if f.code == "LADDER_GAP"]
+    assert len(fs) == 1
+    assert fs[0].evidence["ceiling"].endswith("3 years")
+    assert fs[0].evidence["unbounded"].lower().startswith("indefinite")
+
+
+def test_a_categorical_pair_has_no_interval_to_leave_open() -> None:
+    """Advice of counsel against opinion of counsel is not a scale, so there is no gap."""
+    cat = CLEAN.replace(
+        "Mutual capACCEPT a mutual cap at two times fees paid in the preceding twelve months.",
+        "Advice of counselOK to condition upon advice of counsel.",
+        1,
+    ).replace(
+        "UncappedAny formulation leaving liability uncapped for ordinary breach.",
+        "Opinion of counselConditioning disclosure on opinion of counsel.",
+        1,
+    )
+    assert "LADDER_GAP" not in {f.code for f in pbm.playbook_check(pbm.parse_markdown(cat))}

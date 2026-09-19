@@ -10,8 +10,13 @@ import { getPlaybook, type Deviation, type PlaybookDetail, type PlaybookRule } f
 
 /** Standard, acceptable, unacceptable. A rule with no unacceptable position has no defined
  *  treatment for anything past its last fallback, and across a playbook that reads as a wall
- *  of open right-hand ends, which is the thing worth seeing before any individual finding. */
+ *  of open right-hand ends, which is the thing worth seeing before any individual finding.
+ *
+ *  Presence is not coverage. Three filled segments look complete, and a rule can still have a
+ *  hole between them: accept up to three years, refuse an indefinite term, and four years is
+ *  addressed by neither. Where a check found that, the ladder breaks rather than reading green. */
 function Ladder({ r }: { r: PlaybookRule }) {
+  const gap = r.findings.some((f) => f.code === "LADDER_GAP");
   const steps = [
     { label: "standard", on: !!r.standard, tone: "var(--accent)" },
     { label: `acceptable · ${r.acceptable.length}`, on: r.acceptable.length > 0, tone: "var(--ok)" },
@@ -19,17 +24,25 @@ function Ladder({ r }: { r: PlaybookRule }) {
   ];
   return (
     <span className="flex items-stretch gap-[3px]">
-      {steps.map((s) => (
-        <span
-          key={s.label}
-          title={s.on ? s.label : `no ${s.label.split(" ")[0]} position`}
-          className="h-[7px] w-12 rounded-sm"
-          style={{
-            background: s.on ? s.tone : "transparent",
-            border: s.on ? "none" : "1px dashed var(--border-2)",
-            opacity: s.on ? 0.85 : 1,
-          }}
-        />
+      {steps.map((s, i) => (
+        <span key={s.label} className="flex items-stretch gap-[3px]">
+          {i === 2 && gap && (
+            <span
+              title="nothing covers the range between the last acceptable position and the first unacceptable one"
+              className="h-[7px] w-3 rounded-sm"
+              style={{ background: "repeating-linear-gradient(45deg, var(--warn) 0 2px, transparent 2px 4px)" }}
+            />
+          )}
+          <span
+            title={s.on ? s.label : `no ${s.label.split(" ")[0]} position`}
+            className="h-[7px] w-12 rounded-sm"
+            style={{
+              background: s.on ? s.tone : "transparent",
+              border: s.on ? "none" : "1px dashed var(--border-2)",
+              opacity: s.on ? 0.85 : 1,
+            }}
+          />
+        </span>
       ))}
     </span>
   );
