@@ -8,6 +8,16 @@ __pycache__/
 # they carry exactly what the .db rules above exist to keep out, and *.json cannot be
 # blanket-ignored without catching package.json and friends.
 exports/
+
+# Source documents. Playbooks, prompt libraries and their spreadsheets are client work
+# product and several name the client outright. None are needed to build or test, and
+# an accidental `git add -A` is how one reaches a commit that cannot then be unmade.
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.pdf
+*.pptx
 .pytest_cache/
 dist/
 .DS_Store
