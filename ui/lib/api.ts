@@ -252,13 +252,15 @@ export const getActivity = (m: string, limit = 60) =>
 
 // --- playbooks: parsed from files on demand, not held in the database ---
 
+export type Deviation = { label: string | null; body: string };
+
 export type PlaybookRule = {
   name: string;
   position: number;
   rule_id: string | null;
   standard: string;
-  acceptable: string[];
-  unacceptable: string[];
+  acceptable: Deviation[];
+  unacceptable: Deviation[];
   guidance: string;
   workflow: string[];
   required: boolean | null;

@@ -76,12 +76,23 @@ def test_a_conforming_playbook_is_quiet() -> None:
     assert pbm.playbook_check(pbm.parse_markdown(CLEAN, name="clean")) == []
 
 
-def test_label_and_body_are_split_despite_the_export_concatenating_them() -> None:
-    label, body = pbm._split_label("Reasonable editsOK to accept reasonable edits.")
+def test_a_deviations_title_survives() -> None:
+    """Word puts a line break between a deviation's title and its body inside one paragraph.
+    Flattening the document to lines lost it, and the title was then discarded as a parsing
+    artefact, which silently dropped the name of every fallback in the playbook."""
+    label, body = pbm.split_label(
+        "Consent requirement for limited partners\nOK to accept, if client has not said otherwise."
+    )
+    assert label == "Consent requirement for limited partners"
+    assert body == "OK to accept, if client has not said otherwise."
+
+
+def test_a_flattened_entry_falls_back_to_guessing_the_join() -> None:
+    label, body = pbm.split_label("Reasonable editsOK to accept reasonable edits.")
     assert label == "Reasonable edits"
     assert body == "OK to accept reasonable edits."
     # no boundary to find: the whole string is the body, not a guess
-    assert pbm._split_label("all lowercase throughout") == (None, "all lowercase throughout")
+    assert pbm.split_label("all lowercase throughout") == (None, "all lowercase throughout")
 
 
 @pytest.mark.parametrize(

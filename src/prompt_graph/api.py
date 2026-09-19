@@ -430,6 +430,13 @@ def playbooks() -> dict[str, Any]:
     return {"directory": str(d), "playbooks": out}
 
 
+def _deviation(entry: str) -> dict[str, str | None]:
+    """A deviation is a titled entry. The title is what a reader scans, so it travels
+    separately rather than being folded into the body."""
+    label, body = playbook_mod.split_label(entry)
+    return {"label": label, "body": body}
+
+
 def _parse_playbook(target: Path) -> playbook_mod.Playbook:
     try:
         if target.suffix.lower() in (".md", ".txt"):
@@ -478,8 +485,8 @@ def playbook_detail(name: str) -> dict[str, Any]:
                 "position": r.position,
                 "rule_id": r.rule_id,
                 "standard": r.standard,
-                "acceptable": r.acceptable,
-                "unacceptable": r.unacceptable,
+                "acceptable": [_deviation(x) for x in r.acceptable],
+                "unacceptable": [_deviation(x) for x in r.unacceptable],
                 "guidance": r.guidance,
                 "workflow": r.workflow,
                 "required": r.required,

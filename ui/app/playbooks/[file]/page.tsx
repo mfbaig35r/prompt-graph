@@ -6,7 +6,7 @@ import {
   AlertTriangle, ChevronDown, ChevronRight, FileText, Layers, ListChecks, ScrollText,
 } from "lucide-react";
 import { Crumbs, Eyebrow, PageHeader, Panel, Pill, Stat } from "@/components/ui";
-import { getPlaybook, type PlaybookDetail, type PlaybookRule } from "@/lib/api";
+import { getPlaybook, type Deviation, type PlaybookDetail, type PlaybookRule } from "@/lib/api";
 
 /** Standard, acceptable, unacceptable. A rule with no unacceptable position has no defined
  *  treatment for anything past its last fallback, and across a playbook that reads as a wall
@@ -53,8 +53,8 @@ function RuleBody({ r }: { r: PlaybookRule }) {
     <div className="border-t px-5 pb-5 pt-4" style={{ background: "var(--bg-2)" }}>
       <div className="grid grid-cols-1 gap-x-10 gap-y-5 lg:grid-cols-2">
         <Field label="Standard position" body={r.standard} />
-        <Field label={`Acceptable deviations · ${r.acceptable.length}`} items={r.acceptable} />
-        <Field label={`Unacceptable deviations · ${r.unacceptable.length}`} items={r.unacceptable} />
+        <Field label={`Acceptable deviations · ${r.acceptable.length}`} entries={r.acceptable} />
+        <Field label={`Unacceptable deviations · ${r.unacceptable.length}`} entries={r.unacceptable} />
         <Field label="Guidance" body={r.guidance} />
         {r.workflow.length > 0 && <Field label="Workflow actions" items={r.workflow} />}
       </div>
@@ -87,13 +87,33 @@ function RuleBody({ r }: { r: PlaybookRule }) {
   );
 }
 
-function Field({ label, body, items }: { label: string; body?: string; items?: string[] }) {
-  const empty = !body && !(items && items.length);
+function Field({
+  label,
+  body,
+  items,
+  entries,
+}: {
+  label: string;
+  body?: string;
+  items?: string[];
+  entries?: Deviation[];
+}) {
+  const empty = !body && !(items && items.length) && !(entries && entries.length);
   return (
     <div className="min-w-0">
       <div className="eyebrow mb-1.5">{label}</div>
       {empty ? (
         <div className="text-[12.5px] italic" style={{ color: "var(--text-3)" }}>not stated</div>
+      ) : entries ? (
+        // the title is what a reader scans; the body is why
+        <ul className="space-y-2.5">
+          {entries.map((e, i) => (
+            <li key={i} className="text-[12.5px] leading-[1.6]">
+              {e.label && <span className="block font-medium">{e.label}</span>}
+              <span style={{ color: "var(--text-2)" }}>{e.body}</span>
+            </li>
+          ))}
+        </ul>
       ) : items ? (
         <ul className="space-y-2">
           {items.map((x, i) => (

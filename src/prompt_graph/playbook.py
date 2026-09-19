@@ -108,11 +108,15 @@ class Playbook:
     rules: list[Rule] = field(default_factory=list)
 
 
-def _split_label(text: str) -> tuple[str | None, str]:
-    """Harvey's export concatenates a deviation's title to its body with no separator, in one
-    run, so formatting cannot recover the boundary. The join is almost always lowercase or a
-    closing bracket followed by a capital or a quote. The split is cosmetic: every check reads
-    the whole string, so a wrong guess costs presentation and never a verdict."""
+def split_label(text: str) -> tuple[str | None, str]:
+    """A deviation carries a short title and a body. Word separates them with a line break
+    inside one paragraph, which is authoritative and used when present. Flattened text loses
+    that, so the fallback guesses the join, which is almost always lowercase or a closing
+    bracket followed by a capital or a quote. Every check reads the whole entry, so a wrong
+    guess costs presentation and never a finding."""
+    if "\n" in text:
+        head, _, rest = text.partition("\n")
+        return head.strip() or None, rest.strip()
     m = re.search(r'(?<=[a-z)\]])(?=[A-Z"“])', text)
     if not m or m.start() < 3:
         return None, text.strip()
@@ -136,9 +140,10 @@ def _parse_guidance(rule: Rule) -> None:
         rule.reviewed = m.group(2)
 
 
-def parse_markdown(text: str, name: str = "playbook") -> Playbook:
-    """Parse the heading shape the Word export renders. Levels are ignored; the heading text
-    decides what a block is, because export depth has varied between documents."""
+def _build(blocks: list[tuple[bool, str]], name: str) -> Playbook:
+    """blocks are (is_heading, text). A non-heading block is one paragraph and stays whole,
+    which is what keeps a deviation's title attached to its body: flattening to lines made
+    them two entries, and the title was then discarded as a parsing artefact."""
     pb = Playbook(name=name)
     current: Rule | None = None
     slot: str | None = None
@@ -147,7 +152,7 @@ def parse_markdown(text: str, name: str = "playbook") -> Playbook:
 
     def flush() -> None:
         nonlocal buf
-        body = [ln.strip() for ln in buf if ln.strip()]
+        body = [b.strip() for b in buf if b.strip()]
         buf = []
         if not body:
             return
@@ -169,13 +174,12 @@ def parse_markdown(text: str, name: str = "playbook") -> Playbook:
         elif slot == "optional":
             current.required = not body[0].strip().lower().startswith("y")
 
-    for line in text.splitlines():
-        h = re.match(r"^(#{1,6})\s+(.*)$", line)
-        if not h:
-            buf.append(line)
+    for is_heading, block in blocks:
+        if not is_heading:
+            buf.append(block)
             continue
         flush()
-        title = h.group(2).strip()
+        title = block.strip()
         key = title.lower().rstrip(":")
         if key in _PREAMBLE_HEADINGS:
             current, slot, in_preamble = None, None, True
@@ -192,9 +196,16 @@ def parse_markdown(text: str, name: str = "playbook") -> Playbook:
 
     for r in pb.rules:
         _parse_guidance(r)
-        r.acceptable = [_split_label(x)[1] or x for x in r.acceptable]
-        r.unacceptable = [_split_label(x)[1] or x for x in r.unacceptable]
     return pb
+
+
+def parse_markdown(text: str, name: str = "playbook") -> Playbook:
+    """Line-based, for a .md rendering. Each line is its own block."""
+    blocks: list[tuple[bool, str]] = []
+    for line in text.splitlines():
+        h = re.match(r"^#{1,6}\s+(.*)$", line)
+        blocks.append((True, h.group(1)) if h else (False, line))
+    return _build(blocks, name)
 
 
 def docx_to_markdown(path: str | Path) -> str:
@@ -221,9 +232,36 @@ def docx_to_markdown(path: str | Path) -> str:
     return "\n".join(out)
 
 
+def _docx_blocks(target: Path) -> list[tuple[bool, str]]:
+    try:
+        root = ET.fromstring(zipfile.ZipFile(target).read("word/document.xml"))
+    except (zipfile.BadZipFile, KeyError) as e:
+        raise PromptGraphError(f"{target.name} is not a readable .docx: {e}") from e
+    blocks: list[tuple[bool, str]] = []
+    for p in root.iter(f"{W}p"):
+        parts: list[str] = []
+        for node in p.iter():
+            tag = node.tag.replace(W, "")
+            if tag == "t":
+                parts.append(node.text or "")
+            elif tag in ("br", "cr"):
+                parts.append("\n")  # Word's intra-paragraph break: a deviation's title ends here
+            elif tag == "tab":
+                parts.append("\t")
+        txt = "".join(parts).strip()
+        if not txt:
+            continue
+        st = p.find(f"{W}pPr/{W}pStyle")
+        val = st.get(f"{W}val") if st is not None else ""
+        blocks.append((bool(val and val.lower().startswith("heading")), txt))
+    return blocks
+
+
 def parse_docx(path: str | Path) -> Playbook:
     target = Path(path).expanduser()
-    return parse_markdown(docx_to_markdown(target), name=target.stem)
+    if not target.exists():
+        raise PromptGraphError(f"No playbook at {target}")
+    return _build(_docx_blocks(target), name=target.stem)
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +334,7 @@ def playbook_check(pb: Playbook) -> list[Finding]:
             )
 
         for entry in r.acceptable:
-            _, body = _split_label(entry)
+            _, body = split_label(entry)
             if _ONLY_REASONABLE.match(body.strip()):
                 f(
                     "DEVIATION_UNSPECIFIED",
