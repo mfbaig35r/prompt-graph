@@ -453,3 +453,32 @@ def test_curly_punctuation_is_not_a_rename() -> None:
     d = pbm.playbook_diff(pbm.parse_markdown(v1, "v1"), pbm.parse_markdown(v2, "v2"))
     assert d["counts"]["renamed"] == 0
     assert not [f for f in d["findings"] if f.code == "RULE_RENAMED"]
+
+
+def test_absence_can_be_answered_three_ways() -> None:
+    """The format gives three answers to a missing provision: acceptable, insert this language,
+    or escalate. A check that demanded wording from all three reported a false absence of an
+    absence answer on rules that had answered correctly."""
+    base = CLEAN.replace(
+        'ADD the below provision if not already otherwise addressed: "The breaching party shall be\nliable only for direct damages arising out of any unauthorised use or disclosure."',
+        "{ABSENCE}",
+        1,
+    )
+
+    def codes(answer: str) -> set[str]:
+        return {
+            f.code
+            for f in pbm.playbook_check(pbm.parse_markdown(base.replace("{ABSENCE}", answer)))
+        }
+
+    supplies = 'REJECT broad caps. If the provision is absent: insert "The breaching party shall be liable only for direct damages arising out of any unauthorised disclosure."'
+    escalates = "REJECT broad caps. If the provision is absent: escalate to the deal partner."
+    acceptable = "REJECT broad caps. If the provision is absent: no action is required."
+    describes = (
+        "REJECT broad caps. If the provision is absent: insert a customary limitation of liability."
+    )
+
+    for answer in (supplies, escalates, acceptable):
+        assert "ABSENCE_REMEDIATION_MISSING" not in codes(answer), answer[:40]
+    # describing the provision rather than supplying it leaves a model drafting the redline
+    assert "ABSENCE_REMEDIATION_MISSING" in codes(describes)

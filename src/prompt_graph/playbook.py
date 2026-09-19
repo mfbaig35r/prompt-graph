@@ -61,6 +61,11 @@ _ABSENCE = re.compile(
     re.I,
 )
 _OPERATIVE = re.compile('["\u201c][^"\u201c\u201d]{40,}["\u201d]')
+# The authoring format gives three answers to absence: acceptable, insert this language, or
+# escalate. Only "insert" has to supply wording. A check that demanded wording from all three
+# fired on rules that had answered correctly, which is a false absence of an absence answer.
+_ABSENCE_ESCALATES = re.compile(r"\bescalat\w+", re.I)
+_ABSENCE_ACCEPTABLE = re.compile(r"no action|need not be added|is not required|acceptable", re.I)
 
 # Prose standing in for structure. These are the openings the authoring format names.
 _PROSE_GATE = re.compile(
@@ -127,8 +132,18 @@ class Rule:
 
     @property
     def absence_remediation(self) -> bool:
-        """States what to do when the provision is missing, and supplies the wording."""
-        return bool(_ABSENCE.search(self.standard) and _OPERATIVE.search(self.standard))
+        """Says what happens when the provision is missing.
+
+        Answering with wording, with escalation, or with "nothing needed" are all answers. Only
+        an instruction to insert has to carry the text, because "insert a customary provision"
+        leaves a model drafting the outbound redline from a description."""
+        m = _ABSENCE.search(self.standard)
+        if not m:
+            return False
+        tail = self.standard[m.start() :]
+        if _ABSENCE_ESCALATES.search(tail) or _ABSENCE_ACCEPTABLE.search(tail):
+            return True
+        return bool(_OPERATIVE.search(tail))
 
 
 @dataclass(slots=True)
