@@ -173,3 +173,75 @@ def test_now_strictly_increases() -> None:
     stamps = [db.now() for _ in range(500)]
     assert len(set(stamps)) == 500
     assert stamps == sorted(stamps)
+
+
+# --- playbooks: files, not rows ---------------------------------------------
+
+_MINI = """
+# AI Guidance
+Document control: version 1, owner Legal. On exhaustion, escalate.
+
+## Limitation of Liability
+#### Standard Position
+ADD the below provision if not already addressed: "The breaching party shall be liable only
+for direct damages arising out of any unauthorised disclosure."
+#### Acceptable Positions
+Mutual capACCEPT a mutual cap at two times fees paid.
+### Guidance
+Rule ID: mnda.liability.cap
+### Required
+Yes
+"""
+
+
+@pytest.fixture()
+def pb_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
+    books = tmp_path / "books"
+    books.mkdir()
+    (books / "mini.md").write_text(_MINI)
+    monkeypatch.setenv(api.ENV_PLAYBOOKS, str(books))
+    monkeypatch.setenv(db.ENV_VAR, str(tmp_path / "pg.db"))
+    db.connect(tmp_path / "pg.db").close()
+    _reset_watcher()
+    with TestClient(api.app) as c:
+        yield c
+    _reset_watcher()
+
+
+def test_playbooks_are_listed_and_parsed(pb_client: TestClient) -> None:
+    listing = pb_client.get("/api/playbooks")
+    assert listing.status_code == 200
+    assert [p["name"] for p in listing.json()["playbooks"]] == ["mini.md"]
+
+    d = pb_client.get("/api/playbooks/mini.md").json()
+    assert d["counts"]["rules"] == 1
+    assert d["counts"]["with_rule_id"] == 1
+    r = d["rules"][0]
+    assert r["name"] == "Limitation of Liability" and r["required"] is True
+    assert r["absence_remediation"] is True
+
+
+def test_a_path_outside_the_configured_directory_is_refused(pb_client: TestClient) -> None:
+    """The read layer opens files, so containment is the whole of its security posture."""
+    for attempt in ("../../../etc/passwd", "..%2F..%2Fetc%2Fpasswd", "/etc/passwd"):
+        assert pb_client.get(f"/api/playbooks/{attempt}").status_code in (404, 400)
+
+
+def test_without_a_configured_directory_the_routes_say_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(api.ENV_PLAYBOOKS, raising=False)
+    monkeypatch.setenv(db.ENV_VAR, str(tmp_path / "pg.db"))
+    db.connect(tmp_path / "pg.db").close()
+    _reset_watcher()
+    with TestClient(api.app) as c:
+        r = c.get("/api/playbooks")
+        assert r.status_code == 503 and "PROMPT_GRAPH_PLAYBOOKS" in r.text
+    _reset_watcher()
+
+
+def test_findings_are_attached_to_their_rule(pb_client: TestClient) -> None:
+    d = pb_client.get("/api/playbooks/mini.md").json()
+    codes = {f["code"] for f in d["rules"][0]["findings"]}
+    assert "UNACCEPTABLE_NOT_STATED" in codes
+    assert sum(len(r["findings"]) for r in d["rules"]) <= d["counts"]["findings"]

@@ -15,6 +15,7 @@ import os
 import sqlite3
 import threading
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -23,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import checks as checks_mod
 from . import coverage as coverage_mod
 from . import db, overview, readiness, service
+from . import playbook as playbook_mod
 from . import requirements as requirements_mod
 from .findings import Finding, PromptGraphError, dump
 
@@ -33,6 +35,10 @@ app = FastAPI(title="prompt-graph read API", version="0.1.0")
 # and a blocked request shows up as a page stuck on "Loading" with nothing in the API log, so
 # the allowed list is configurable rather than something to discover the hard way.
 ENV_ORIGINS = "PROMPT_GRAPH_UI_ORIGINS"
+# Playbooks are files, not database rows, because playbook_check is stateless. The API will
+# only read from one configured directory: a read layer that opens any path the caller names
+# is a different and much larger capability than reading a matter it already holds.
+ENV_PLAYBOOKS = "PROMPT_GRAPH_PLAYBOOKS"
 DEFAULT_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 
 
@@ -390,6 +396,92 @@ def _assertions_for(c: sqlite3.Connection, matter_id: int, column_id: int) -> li
         (matter_id, column_id),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+def _playbook_dir() -> Path:
+    raw = os.environ.get(ENV_PLAYBOOKS)
+    if not raw:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No playbook directory configured. Set {ENV_PLAYBOOKS}.",
+        )
+    d = Path(raw).expanduser()
+    if not d.is_dir():
+        raise HTTPException(status_code=503, detail=f"{d} is not a directory.")
+    return d
+
+
+def _playbook_path(name: str) -> Path:
+    d = _playbook_dir()
+    target = (d / name).resolve()
+    # containment check: a name like ../../etc/passwd resolves outside the configured directory
+    if not str(target).startswith(str(d.resolve())) or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"No playbook '{name}'.")
+    return target
+
+
+@app.get("/api/playbooks")
+def playbooks() -> dict[str, Any]:
+    d = _playbook_dir()
+    out = []
+    for p in sorted(d.iterdir()):
+        if p.suffix.lower() in (".docx", ".md", ".txt") and not p.name.startswith("~$"):
+            out.append({"name": p.name, "bytes": p.stat().st_size})
+    return {"directory": str(d), "playbooks": out}
+
+
+@app.get("/api/playbooks/{name}")
+def playbook_detail(name: str) -> dict[str, Any]:
+    target = _playbook_path(name)
+    try:
+        pb = (
+            playbook_mod.parse_markdown(target.read_text(), name=target.stem)
+            if target.suffix.lower() in (".md", ".txt")
+            else playbook_mod.parse_docx(target)
+        )
+    except PromptGraphError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    findings = playbook_mod.playbook_check(pb)
+    by_rule: dict[str, list[dict[str, Any]]] = {}
+    for f in findings:
+        by_rule.setdefault(f.subject_name, []).append(f.to_dict())
+    return {
+        "name": pb.name,
+        "file": target.name,
+        "preamble": pb.preamble,
+        "counts": {
+            "rules": len(pb.rules),
+            "with_acceptable": sum(1 for r in pb.rules if r.acceptable),
+            "with_unacceptable": sum(1 for r in pb.rules if r.unacceptable),
+            "with_rule_id": sum(1 for r in pb.rules if r.rule_id),
+            "with_dependencies": sum(1 for r in pb.rules if r.depends_on),
+            "with_workflow": sum(1 for r in pb.rules if r.workflow),
+            "required": sum(1 for r in pb.rules if r.required),
+            "findings": len(findings),
+        },
+        "rules": [
+            {
+                "name": r.name,
+                "position": r.position,
+                "rule_id": r.rule_id,
+                "standard": r.standard,
+                "acceptable": r.acceptable,
+                "unacceptable": r.unacceptable,
+                "guidance": r.guidance,
+                "workflow": r.workflow,
+                "required": r.required,
+                "absence_remediation": r.absence_remediation,
+                "depends_on": [{"ref": a, "reason": b} for a, b in r.depends_on],
+                "precedence": r.precedence,
+                "on_exhaustion": r.on_exhaustion,
+                "source": r.source,
+                "reviewed": r.reviewed,
+                "findings": by_rule.get(r.name, []),
+            }
+            for r in pb.rules
+        ],
+        "findings": dump(findings),
+    }
 
 
 @app.get("/api/matters/{matter}/activity")

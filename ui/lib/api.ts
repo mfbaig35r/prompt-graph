@@ -249,3 +249,39 @@ export const getActivity = (m: string, limit = 60) =>
   get<{ events: ActivityEvent[]; total: number }>(
     `/api/matters/${encodeURIComponent(m)}/activity?limit=${limit}`,
   );
+
+// --- playbooks: parsed from files on demand, not held in the database ---
+
+export type PlaybookRule = {
+  name: string;
+  position: number;
+  rule_id: string | null;
+  standard: string;
+  acceptable: string[];
+  unacceptable: string[];
+  guidance: string;
+  workflow: string[];
+  required: boolean | null;
+  absence_remediation: boolean;
+  depends_on: { ref: string; reason: string | null }[];
+  precedence: string | null;
+  on_exhaustion: string | null;
+  source: string | null;
+  reviewed: string | null;
+  findings: Finding[];
+};
+
+export type PlaybookDetail = {
+  name: string;
+  file: string;
+  preamble: string;
+  counts: Record<string, number>;
+  rules: PlaybookRule[];
+  findings: Finding[];
+};
+
+export const getPlaybooks = () =>
+  get<{ directory: string; playbooks: { name: string; bytes: number }[] }>("/api/playbooks");
+
+export const getPlaybook = (file: string) =>
+  get<PlaybookDetail>(`/api/playbooks/${encodeURIComponent(file)}`);

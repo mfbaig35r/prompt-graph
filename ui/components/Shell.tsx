@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  BookOpen, Check, ChevronLeft, LifeBuoy, ScrollText, Waypoints, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
+  BookMarked, BookOpen, Check, ChevronLeft, LifeBuoy, ScrollText, Waypoints, ChevronRight, ChevronsUpDown, GitCompare, LayoutDashboard, Layers, Moon, Sun,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getMatter, getMatters, type Matter } from "@/lib/api";
@@ -98,6 +98,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     { href: `${base}/requirements`, label: "Requirements", icon: ScrollText },
     { href: `${base}/coverage`, label: "Correlation", icon: BookOpen },
     { href: `${base}/concepts`, label: "Consistency", icon: GitCompare },
+    { href: "/playbooks", label: "Playbooks", icon: BookMarked },
   ];
 
   return (
