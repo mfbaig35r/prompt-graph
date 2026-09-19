@@ -53,8 +53,10 @@ function components(ids: string[], edges: Edge[]) {
   return out.sort((a, b) => b.length - a.length);
 }
 
-const ROW = 30;
-const GUTTER = 132;
+const ROW = 34;
+/** How far an arc may bulge, scaled to the cluster's own height. A fixed reach makes a two-rule
+ *  cluster's single arc so flat it reads as two parallel lines. */
+const reachFor = (h: number) => Math.round(Math.min(300, Math.max(56, h * 0.92)));
 
 function Cluster({
   ids,
@@ -72,10 +74,11 @@ function Cluster({
   const y = (id: string) => ids.indexOf(id) * ROW + ROW / 2;
   const inner = edges.filter((e) => ids.includes(e.from) && ids.includes(e.to));
   const h = ids.length * ROW;
+  const reach = reachFor(h);
   return (
-    <div className="card overflow-hidden">
+    <div className="card w-fit max-w-full overflow-hidden">
       <div className="flex items-stretch">
-        <ul className="min-w-0 flex-1 py-0">
+        <ul className="w-[430px] shrink-0 py-0">
           {ids.map((id) => {
             const on = sel === id;
             const touching =
@@ -96,12 +99,13 @@ function Cluster({
             );
           })}
         </ul>
-        <svg width={GUTTER} height={h} className="shrink-0" style={{ background: "var(--bg-2)" }}>
+        <svg width={reach + 30} height={h} className="shrink-0" style={{ background: "var(--bg-2)" }}>
           {inner.map((e, i) => {
             const y1 = y(e.from);
             const y2 = y(e.to);
             const span = Math.abs(y2 - y1);
-            const x = 10 + Math.min(span / 2.1, GUTTER - 26);
+            const widest = Math.max(...inner.map((o) => Math.abs(y(o.to) - y(o.from))), 1);
+            const x = 16 + (span / widest) * reach;
             const dim = sel !== null && e.from !== sel && e.to !== sel;
             return (
               <path
@@ -109,13 +113,19 @@ function Cluster({
                 d={`M8,${y1} C${x},${y1} ${x},${y2} 8,${y2}`}
                 fill="none"
                 stroke={REASON[e.reason].color}
-                strokeWidth={sel !== null && !dim ? 1.8 : 1.1}
-                opacity={dim ? 0.12 : 0.75}
+                strokeWidth={sel !== null && !dim ? 2 : 1.3}
+                opacity={dim ? 0.1 : 0.8}
               />
             );
           })}
           {ids.map((id) => (
-            <circle key={id} cx={8} cy={y(id)} r={2.5} fill="var(--text-3)" />
+            <circle
+              key={id}
+              cx={8}
+              cy={y(id)}
+              r={sel === id ? 4 : 2.5}
+              fill={sel === id ? "var(--accent)" : "var(--text-3)"}
+            />
           ))}
         </svg>
       </div>
@@ -168,7 +178,7 @@ export function PlaybookGraph({ rules }: { rules: PlaybookRule[] }) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {comps.map((c) => (
-          <div key={c[0]}>
+          <div key={c[0]} className={c.length > 5 ? "lg:col-span-2" : ""}>
             <div className="eyebrow mb-1.5">
               {c.length} rules · {edges.filter((e) => c.includes(e.from) && c.includes(e.to)).length} edges
             </div>
