@@ -12,6 +12,7 @@ import os
 import sqlite3
 import sys
 from collections.abc import Callable
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import FastMCP
@@ -32,6 +33,9 @@ from . import (
     requirements,
     restore,
     service,
+)
+from . import (
+    playbook as playbook_mod,
 )
 from .constants import COVERAGE_DIMENSION_KEYS, FALLBACK_VOCABULARY, NATIVE_TYPE_ALIASES
 from .findings import Finding, PromptGraphError, dump
@@ -1255,6 +1259,52 @@ def matter_export(
     and as disaster recovery for the database file. Returns the path and counts.
     """
     return export.matter_export(get_conn(), matter, write_to, inline)
+
+
+@mcp.tool()
+@_tool
+def playbook_check(
+    path: Annotated[
+        str,
+        Field(
+            description="Path to a Harvey playbook exported to .docx, or a .md rendering of one."
+        ),
+    ],
+) -> dict[str, Any]:
+    """Read a Harvey playbook export and check it against the authoring format.
+
+    A Harvey rule has five fields. The six further things a maintainable playbook needs
+    (identity, dependencies, precedence, absence remediation, exhaustion paths, provenance)
+    have no field and live inside Guidance by convention, which the platform cannot validate
+    because to it they are prose. This reads both and reports what is missing or unresolvable:
+    rules with no id, dependencies pointing at ids that do not exist, precedence stated on one
+    side only, required rules that never say what to insert when the provision is absent,
+    deviations that say only "reasonable edits", content duplicated between a parent rule and
+    its children, and conditions written in prose that the runtime cannot act on.
+
+    Reads a document and returns findings. Nothing is stored, and no legal judgment is made:
+    whether a finding matters is a question about a specific deal.
+    """
+    target = path.strip()
+    pb = (
+        playbook_mod.parse_markdown(Path(target).expanduser().read_text(), name=Path(target).stem)
+        if target.lower().endswith((".md", ".txt"))
+        else playbook_mod.parse_docx(target)
+    )
+    findings = playbook_mod.playbook_check(pb)
+    return {
+        "playbook": pb.name,
+        "counts": {
+            "rules": len(pb.rules),
+            "with_acceptable": sum(1 for r in pb.rules if r.acceptable),
+            "with_unacceptable": sum(1 for r in pb.rules if r.unacceptable),
+            "with_rule_id": sum(1 for r in pb.rules if r.rule_id),
+            "with_dependencies": sum(1 for r in pb.rules if r.depends_on),
+            "required": sum(1 for r in pb.rules if r.required),
+        },
+        "finding_count": len(findings),
+        "findings": dump(findings),
+    }
 
 
 @mcp.tool()

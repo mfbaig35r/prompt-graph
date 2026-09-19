@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "impact_of_change",
     "staleness_report",
     "parameter_set",
+    "playbook_check",
     "run_record",
     "eval_record",
     "failures_summary",
